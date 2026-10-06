@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Star, UserPlus, UserCheck } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageProvider";
 import {
   fetchCloseFriends,
   fetchFollowing,
@@ -18,6 +19,7 @@ interface Props {
 type Tab = "list" | "add";
 
 const CloseFriendsModal = ({ onClose }: Props) => {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>("list");
   const [friends, setFriends] = useState<CloseFriend[]>([]);
   const [following, setFollowing] = useState<CloseFriend[]>([]);
@@ -53,9 +55,9 @@ const CloseFriendsModal = ({ onClose }: Props) => {
         ...f,
         ...(following.filter((u) => u._id === userId) || []),
       ]);
-      toast.add({ type: "success", title: "Added to close friends" });
+      toast.add({ type: "success", title: t("closeFriends.added") });
     } catch (error) {
-      toast.add({ type: "error", title: "Failed to add" });
+      toast.add({ type: "error", title: t("closeFriends.addFailed") });
     }
   };
 
@@ -63,9 +65,9 @@ const CloseFriendsModal = ({ onClose }: Props) => {
     try {
       await removeCloseFriend(userId);
       setFriends((f) => f.filter((x) => x._id !== userId));
-      toast.add({ type: "success", title: "Removed" });
+      toast.add({ type: "success", title: t("closeFriends.removed") });
     } catch (error) {
-      toast.add({ type: "error", title: "Failed to remove" });
+      toast.add({ type: "error", title: t("closeFriends.removeFailed") });
     }
   };
 
@@ -96,7 +98,7 @@ const CloseFriendsModal = ({ onClose }: Props) => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-ig-border shrink-0">
           <div className="flex items-center gap-2">
             <Star size={16} className="text-[#0095f6]" />
-            <h2 className="text-sm font-semibold text-ig-text">Close Friends</h2>
+            <h2 className="text-sm font-semibold text-ig-text">{t("closeFriends.title")}</h2>
           </div>
           <button
             onClick={onClose}
@@ -107,28 +109,30 @@ const CloseFriendsModal = ({ onClose }: Props) => {
         </div>
 
         <div className="flex border-b border-ig-border shrink-0">
-          {(["list", "add"] as Tab[]).map((t) => (
+          {(["list", "add"] as Tab[]).map((id) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={id}
+              onClick={() => setTab(id)}
               className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-                tab === t
+                tab === id
                   ? "border-ig-text text-ig-text"
                   : "border-transparent text-ig-muted hover:text-ig-text"
               }`}
             >
-              {t === "list" ? `List (${friends.length})` : "Add people"}
+              {id === "list"
+                ? t("closeFriends.list", { n: friends.length })
+                : t("closeFriends.addPeople")}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto min-h-0 py-1">
           {loading ? (
-            <p className="text-sm text-ig-muted text-center py-10">Loading…</p>
+            <p className="text-sm text-ig-muted text-center py-10">{t("closeFriends.loading")}</p>
           ) : tab === "list" ? (
             friends.length === 0 ? (
               <p className="text-sm text-ig-muted text-center py-10">
-                No close friends yet. Add people to share close-friend stories.
+                {t("closeFriends.empty")}
               </p>
             ) : (
               friends.map((u) => (
@@ -140,7 +144,7 @@ const CloseFriendsModal = ({ onClose }: Props) => {
                       onClick={() => handleRemove(u._id)}
                       className="px-3 py-1.5 text-xs font-semibold text-ig-text bg-ig-hover rounded-lg hover:bg-ig-border transition-colors"
                     >
-                      Remove
+                      {t("common.remove")}
                     </button>
                   }
                 />
@@ -148,7 +152,7 @@ const CloseFriendsModal = ({ onClose }: Props) => {
             )
           ) : candidates.length === 0 ? (
             <p className="text-sm text-ig-muted text-center py-10">
-              Everyone you follow is already a close friend.
+              {t("closeFriends.allAdded")}
             </p>
           ) : (
             candidates.map((u) => (
@@ -160,7 +164,7 @@ const CloseFriendsModal = ({ onClose }: Props) => {
                     onClick={() => handleAdd(u._id)}
                     className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-[#0095f6] rounded-lg hover:bg-[#1877f2] transition-colors"
                   >
-                    <UserPlus size={13} /> Add
+                    <UserPlus size={13} /> {t("common.add")}
                   </button>
                 }
               />

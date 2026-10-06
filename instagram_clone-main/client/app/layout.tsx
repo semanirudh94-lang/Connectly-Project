@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-context";
+import { LanguageProvider } from "@/lib/LanguageProvider";
 import { CreateModalProvider } from "@/lib/createmodelcontext";
 import AuthProvider from "@/providers/AuthProvider";
 import AuthGuard from "@/lib/AuthGuard";
@@ -30,14 +31,16 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <AuthProvider>
-            <CreateModalProvider>
-              <AuthGuard>
-                <SocketProvider>{children}</SocketProvider>
-              </AuthGuard>
-              <Toaster />
-            </CreateModalProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <CreateModalProvider>
+                <AuthGuard>
+                  <SocketProvider>{children}</SocketProvider>
+                </AuthGuard>
+                <Toaster />
+              </CreateModalProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,6 +2,7 @@
 
 import axiosInstance from "@/lib/axios";
 import { currentUser, formatLikeCount, formatTimeAgo } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/LanguageProvider";
 import useAuthStore from "@/store/authStore";
 import {
   Bookmark,
@@ -16,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 
 const Postcard = ({ post }: any) => {
   const user = useAuthStore((state) => state.user);
+  const { t } = useLanguage();
   const [liked, setLiked] = useState(
     post.likes.some((like: any) => like.user?._id === user?._id),
   );
@@ -200,7 +202,8 @@ const Postcard = ({ post }: any) => {
 
         {/* Likes */}
         <p className="text-sm font-semibold text-ig-text mb-1">
-          {formatLikeCount(likeCount)} {likeCount === 1 ? "like" : "likes"}
+          {formatLikeCount(likeCount)}{" "}
+          {likeCount === 1 ? t("post.like") : t("post.likes")}
         </p>
 
         {/* Caption */}
@@ -217,7 +220,7 @@ const Postcard = ({ post }: any) => {
               onClick={() => setCaptionExpanded(true)}
               className="text-ig-muted ml-1 text-sm"
             >
-              more
+              {t("post.more")}
             </button>
           )}
         </p>
@@ -228,7 +231,7 @@ const Postcard = ({ post }: any) => {
             onClick={() => setShowAllComments(true)}
             className="text-sm text-ig-muted mb-1 block"
           >
-            View all {localComments.length} comments
+            {t("post.viewAllComments", { n: localComments.length })}
           </button>
         )}
         {visibleComments?.map((comment: any) => (
@@ -247,7 +250,7 @@ const Postcard = ({ post }: any) => {
 
         {/* Timestamp */}
         <p className="text-[10px] uppercase tracking-wide text-ig-muted mt-1 mb-3">
-          {formatTimeAgo(post.createdAt)} ago
+          {formatTimeAgo(post.createdAt)} {t("post.ago")}
         </p>
       </div>
 
@@ -269,7 +272,7 @@ const Postcard = ({ post }: any) => {
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Add a comment…"
+              placeholder={t("post.addComment")}
               className="flex-1 text-sm text-ig-text placeholder:text-ig-muted outline-none bg-transparent"
             />
             <button
@@ -284,7 +287,7 @@ const Postcard = ({ post }: any) => {
               type="submit"
               className="text-sm font-semibold text-[#0095f6] hover:text-[#1877f2] dark:text-[#38b6ff] dark:hover:text-[#5cc8ff]"
             >
-              Post
+              {t("post.post")}
             </button>
           )}
         </form>

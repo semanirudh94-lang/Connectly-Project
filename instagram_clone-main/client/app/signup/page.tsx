@@ -6,11 +6,13 @@ import { Eye, EyeOff } from "lucide-react";
 import axiosInstance from "@/lib/axios";
 import useAuthStore from "@/store/authStore";
 import { toast } from "@/components/ui/toast";
+import { useLanguage } from "@/lib/LanguageProvider";
 interface FormData {
   email: string;
   fullName: string;
   username: string;
   password: string;
+  phone: string;
   profilePicture?: string;
 }
 
@@ -19,9 +21,11 @@ interface FormErrors {
   fullName?: string;
   username?: string;
   password?: string;
+  phone?: string;
 }
 const PAGE = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -29,6 +33,7 @@ const PAGE = () => {
     fullName: "",
     username: "",
     password: "",
+    phone: "",
     profilePicture:
       "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150",
   });
@@ -37,14 +42,16 @@ const PAGE = () => {
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
-    if (!formData.email)
-      newErrors.email = "Enter a valid email address or phone number.";
-    if (!formData.fullName) newErrors.fullName = "Enter your full name.";
+    if (!formData.email) newErrors.email = t("validation.email");
+    if (!formData.fullName) newErrors.fullName = t("validation.required");
     if (!formData.username || formData.username.length < 3) {
-      newErrors.username = "Username must be at least 3 characters.";
+      newErrors.username = t("validation.username");
     }
     if (!formData.password || formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters.";
+      newErrors.password = t("validation.password");
+    }
+    if (formData.phone && !/^\+?[\d\s-]{7,15}$/.test(formData.phone)) {
+      newErrors.phone = t("validation.phone");
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -127,7 +134,7 @@ const PAGE = () => {
               <input
                 type="text"
                 name="email"
-                placeholder="Mobile number or email"
+                placeholder={t("auth.mobileOrEmail")}
                 value={formData.email}
                 onChange={handleChange}
                 className={`w-full bg-ig-bg border rounded-[3px] text-[12px] px-2 py-[9px] focus:outline-none placeholder:text-ig-muted transition-colors text-ig-text ${
@@ -143,12 +150,33 @@ const PAGE = () => {
               )}
             </div>
 
+            {/* Phone (used for SMS language verification) */}
+            <div>
+              <input
+                type="tel"
+                name="phone"
+                placeholder={t("auth.phone")}
+                value={formData.phone}
+                onChange={handleChange}
+                className={`w-full bg-ig-bg border rounded-[3px] text-[12px] px-2 py-[9px] focus:outline-none placeholder:text-ig-muted transition-colors text-ig-text ${
+                  errors.phone
+                    ? "border-[#ed4956]"
+                    : "border-ig-border focus:border-ig-muted"
+                }`}
+              />
+              {errors.phone && (
+                <p className="text-[11px] text-[#ed4956] mt-1">
+                  {errors.phone}
+                </p>
+              )}
+            </div>
+
             {/* Full name */}
             <div>
               <input
                 type="text"
                 name="fullName"
-                placeholder="Full name"
+                placeholder={t("auth.fullName")}
                 value={formData.fullName}
                 onChange={handleChange}
                 className={`w-full bg-ig-bg border rounded-[3px] text-[12px] px-2 py-[9px] focus:outline-none placeholder:text-ig-muted transition-colors text-ig-text ${
@@ -169,7 +197,7 @@ const PAGE = () => {
               <input
                 type="text"
                 name="username"
-                placeholder="Username"
+                placeholder={t("auth.username")}
                 value={formData.username}
                 onChange={handleChange}
                 minLength={3}
@@ -193,7 +221,7 @@ const PAGE = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  placeholder="Password"
+                  placeholder={t("auth.password")}
                   value={formData.password}
                   onChange={handleChange}
                   minLength={6}
@@ -270,10 +298,10 @@ const PAGE = () => {
                       d="M4 12a8 8 0 018-8v8H4z"
                     />
                   </svg>
-                  Signing up…
+                  {t("auth.signingUp")}
                 </span>
               ) : (
-                "Sign up"
+                t("auth.signup")
               )}
             </button>
           </form>
@@ -282,19 +310,19 @@ const PAGE = () => {
         {/* Log in card */}
         <div className="bg-ig-surface border border-ig-border rounded-sm py-4 text-center">
           <p className="text-sm text-ig-text">
-            Have an account?{" "}
+            {t("auth.haveAccount")}{" "}
             <Link
               href="/login"
               className="text-[#0095f6] font-semibold hover:text-[#1877f2] dark:text-[#38b6ff] dark:hover:text-[#5cc8ff]"
             >
-              Log in
+              {t("auth.login")}
             </Link>
           </p>
         </div>
 
         {/* App stores */}
         <div className="mt-1 text-center">
-          <p className="text-sm text-ig-text mb-4">Get the app.</p>
+          <p className="text-sm text-ig-text mb-4">{t("auth.getApp")}</p>
           <div className="flex justify-center gap-2">
             <div className="border border-ig-text rounded-lg px-3 py-1 flex items-center gap-2">
               <svg

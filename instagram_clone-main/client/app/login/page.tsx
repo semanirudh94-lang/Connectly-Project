@@ -7,8 +7,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import axiosInstance from "@/lib/axios";
+import { useLanguage } from "@/lib/LanguageProvider";
 const page = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +20,7 @@ const page = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please fill in all fields");
+      setError(t("auth.fillAll"));
       return;
     }
     setLoading(true);
@@ -161,7 +163,7 @@ const page = () => {
               <form onSubmit={handleSubmit} className="flex flex-col gap-[6px]">
                 <input
                   type="email"
-                  placeholder="email"
+                  placeholder={t("auth.email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-ig-bg border border-ig-border rounded-[3px] text-[12px] px-2 py-[9px] focus:outline-none focus:border-ig-muted placeholder:text-ig-muted text-ig-text"
@@ -169,7 +171,7 @@ const page = () => {
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
+                    placeholder={t("auth.password")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-ig-bg border border-ig-border rounded-[3px] text-[12px] px-2 py-[9px] pr-16 focus:outline-none focus:border-ig-muted placeholder:text-ig-muted text-ig-text"
@@ -211,14 +213,13 @@ const page = () => {
                           d="M4 12a8 8 0 018-8v8H4z"
                         />
                       </svg>
-                      Logging in…
+                      {t("auth.loggingIn")}
                     </span>
                   ) : (
-                    "Log in"
+                    t("auth.login")
                   )}
                 </button>
               </form>
-
               {/* Divider */}
               <div className="flex items-center gap-4 my-4">
                 <div className="flex-1 h-px bg-ig-border" />
@@ -246,26 +247,26 @@ const page = () => {
                 href="#"
                 className="block text-center text-xs text-ig-blue mt-4 hover:underline"
               >
-                Forgot password?
+                {t("auth.forgotPassword")}
               </a>
             </div>
 
             {/* Sign up card */}
             <div className="bg-ig-surface border border-ig-border rounded-sm py-4 text-center">
               <p className="text-sm text-ig-text">
-                Don&apos;t have an account?{" "}
+                {t("auth.noAccount")}{" "}
                 <Link
                   href="/signup"
                   className="text-[#0095f6] font-semibold hover:text-[#1877f2] dark:text-[#38b6ff] dark:hover:text-[#5cc8ff]"
                 >
-                  Sign up
+                  {t("auth.signup")}
                 </Link>
               </p>
             </div>
 
             {/* App stores */}
             <div className="mt-1 text-center">
-              <p className="text-sm text-ig-text mb-4">Get the app.</p>
+              <p className="text-sm text-ig-text mb-4">{t("auth.getApp")}</p>
               <div className="flex justify-center gap-2">
                 <div className="border border-ig-text rounded-lg px-3 py-1 flex items-center gap-2">
                   <svg

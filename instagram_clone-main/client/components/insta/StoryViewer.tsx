@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/lib/LanguageProvider";
 import {
   StoryGroup,
   recordStoryView,
@@ -31,6 +32,7 @@ interface Props {
 }
 
 const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
+  const { t } = useLanguage();
   const [groupIndex, setGroupIndex] = useState(initialGroupIndex);
   const [storyIndex, setStoryIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -167,9 +169,9 @@ const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
       await replyToStory(currentStory._id, reply.trim());
       setReply("");
       setPaused(false);
-      toast.add({ type: "success", title: "Reply sent" });
+      toast.add({ type: "success", title: t("story.replySent") });
     } catch (error) {
-      toast.add({ type: "error", title: "Failed to send reply" });
+      toast.add({ type: "error", title: t("story.replyFailed") });
     } finally {
       setSending(false);
     }
@@ -179,12 +181,12 @@ const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
     if (!currentStory) return;
     try {
       await deleteStory(currentStory._id);
-      toast.add({ type: "success", title: "Story deleted" });
+      toast.add({ type: "success", title: t("story.deleted") });
       setMenuOpen(false);
       onSeen?.();
       onClose();
     } catch (error) {
-      toast.add({ type: "error", title: "Failed to delete story" });
+      toast.add({ type: "error", title: t("story.deleteFailed") });
     }
   };
 
@@ -303,14 +305,14 @@ const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
                     onClick={handleDelete}
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[#ed4956] hover:bg-ig-hover transition-colors"
                   >
-                    <Trash2 size={16} /> Delete story
+                    <Trash2 size={16} /> {t("story.deleteStory")}
                   </button>
                 )}
                 <button
                   onClick={() => setMenuOpen(false)}
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm text-ig-text hover:bg-ig-hover transition-colors"
                 >
-                  <Send size={16} /> Report
+                  <Send size={16} /> {t("story.report")}
                 </button>
               </div>
             )}
@@ -380,7 +382,7 @@ const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
                 }}
                 className="flex-1 text-left text-white/80 hover:text-white text-sm px-4 py-2 border border-white/40 rounded-full transition-colors"
               >
-                View analytics
+                {t("story.viewAnalytics")}
               </button>
             ) : (
               <form onSubmit={handleReply} className="flex-1 flex items-center gap-3">
@@ -388,7 +390,7 @@ const StoryViewer = ({ groups, initialGroupIndex, onClose, onSeen }: Props) => {
                   type="text"
                   value={reply}
                   onChange={(e) => setReply(e.target.value)}
-                  placeholder={`Reply to ${currentGroup.user.username}…`}
+                  placeholder={t("story.replyTo", { name: currentGroup.user.username })}
                   className="flex-1 bg-transparent border border-white/50 rounded-full px-4 py-2 text-white text-sm placeholder:text-white/60 focus:outline-none focus:border-white transition-colors"
                   onFocus={() => setPaused(true)}
                   onBlur={() => {

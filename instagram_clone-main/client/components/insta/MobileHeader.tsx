@@ -2,10 +2,12 @@
 
 import { mockConversations } from "@/lib/mock-data";
 import { useTheme } from "@/lib/theme-context";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { Heart, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 
 const MobileHeader = () => {
+  const { t } = useLanguage();
   const totalUnread = mockConversations.reduce((s, c) => s + c.unread, 0);
   const { theme, toggle } = useTheme();
   return (
@@ -22,7 +24,7 @@ const MobileHeader = () => {
       </button>
       <Link href="/">
         <span className="instagram-font text-[26px] leading-none text-ig-text">
-          Instagram
+          {t("app.name")}
         </span>
       </Link>
       <div className="flex items-center gap-5">

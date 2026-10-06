@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Post, currentUser, formatTimeAgo, formatLikeCount } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/LanguageProvider";
 
 interface PostModalProps {
   post: Post;
@@ -22,6 +23,7 @@ interface PostModalProps {
 }
 
 export default function PostModal({ post: initialPost, posts, onClose }: PostModalProps) {
+  const { t } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(
     posts.findIndex((p) => p._id === initialPost._id)
   );
@@ -173,7 +175,7 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
                 disabled={!hasPrev}
                 className="flex items-center gap-1 text-xs font-semibold text-[#0095f6] disabled:text-[#c7c7c7] transition-colors"
               >
-                <ChevronLeft size={14} /> Previous
+                <ChevronLeft size={14} /> {t("common.previous")}
               </button>
               <span className="text-xs text-ig-muted">{currentIndex + 1} / {posts.length}</span>
               <button
@@ -181,7 +183,7 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
                 disabled={!hasNext}
                 className="flex items-center gap-1 text-xs font-semibold text-[#0095f6] disabled:text-[#c7c7c7] transition-colors"
               >
-                Next <ChevronRight size={14} />
+                {t("common.next")} <ChevronRight size={14} />
               </button>
             </div>
           )}
@@ -209,7 +211,7 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
                   {post.caption}
                 </p>
                 <p className="text-[10px] text-ig-muted mt-1 uppercase tracking-wide">
-                  {formatTimeAgo(post.createdAt)} ago
+                  {formatTimeAgo(post.createdAt)} {t("post.ago")}
                 </p>
               </div>
             </div>
@@ -228,10 +230,10 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
                   </p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-[10px] text-ig-muted uppercase tracking-wide">
-                      {formatTimeAgo(comment.createdAt)} ago
+                      {formatTimeAgo(comment.createdAt)} {t("post.ago")}
                     </span>
                     <button className="text-[11px] font-semibold text-ig-muted hover:text-ig-text">
-                      Reply
+                      {t("post.reply")}
                     </button>
                   </div>
                 </div>
@@ -266,10 +268,11 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
               </button>
             </div>
             <p className="text-sm font-semibold text-ig-text mb-0.5">
-              {formatLikeCount(likeCount)} {likeCount === 1 ? "like" : "likes"}
+              {formatLikeCount(likeCount)}{" "}
+              {likeCount === 1 ? t("post.like") : t("post.likes")}
             </p>
             <p className="text-[10px] text-ig-muted uppercase tracking-wide mb-2">
-              {formatTimeAgo(post.createdAt)} ago
+              {formatTimeAgo(post.createdAt)} {t("post.ago")}
             </p>
           </div>
 
@@ -284,12 +287,12 @@ export default function PostModal({ post: initialPost, posts, onClose }: PostMod
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Add a comment…"
+                placeholder={t("post.addComment")}
                 className="flex-1 text-sm text-ig-text placeholder:text-ig-muted outline-none bg-transparent min-w-0"
               />
               {commentText.trim() && (
                 <button type="submit" className="text-sm font-semibold text-[#0095f6] hover:text-[#1877f2] dark:text-[#38b6ff] dark:hover:text-[#5cc8ff] shrink-0">
-                  Post
+                  {t("post.post")}
                 </button>
               )}
             </form>

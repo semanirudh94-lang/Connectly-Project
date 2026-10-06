@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { X, Check } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { fetchArchive, ArchiveStory } from "@/lib/story.service";
 import { createHighlight } from "@/lib/highlight.service";
 import { toast } from "../ui/toast";
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
+  const { t } = useLanguage();
   const [stories, setStories] = useState<ArchiveStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
@@ -33,20 +35,20 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
 
   const handleCreate = async () => {
     if (!name.trim() || !selected.length) {
-      toast.add({ type: "error", title: "Add a name and pick stories" });
+      toast.add({ type: "error", title: t("highlight.addNameAndPick") });
       return;
     }
     setSaving(true);
     try {
       const first = stories.find((s) => s._id === selected[0]);
       await createHighlight(name.trim(), first?.media?.url || "", selected);
-      toast.add({ type: "success", title: "Highlight created" });
+      toast.add({ type: "success", title: t("highlight.created") });
       onCreated();
       onClose();
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.response?.data?.message || "Failed to create highlight",
+        title: error?.response?.data?.message || t("highlight.createFailed"),
       });
     } finally {
       setSaving(false);
@@ -57,7 +59,7 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
     <div className="fixed inset-0 z-[170] bg-black/70 flex items-center justify-center p-4">
       <div className="bg-ig-surface rounded-xl w-full max-w-[520px] max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-ig-border shrink-0">
-          <h2 className="text-sm font-semibold text-ig-text">New highlight</h2>
+          <h2 className="text-sm font-semibold text-ig-text">{t("highlight.newHighlight")}</h2>
           <button
             onClick={onClose}
             className="p-1 text-ig-text hover:opacity-60 transition-opacity"
@@ -71,7 +73,7 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={40}
-            placeholder="Highlight name"
+            placeholder={t("highlight.namePlaceholder")}
             className="w-full text-sm text-ig-text bg-ig-input rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-ig-border"
           />
         </div>
@@ -79,11 +81,11 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
         <div className="flex-1 overflow-y-auto min-h-0 p-2">
           {loading ? (
             <p className="text-sm text-ig-muted text-center py-10">
-              Loading your stories…
+              {t("highlight.loadingStories")}
             </p>
           ) : stories.length === 0 ? (
             <p className="text-sm text-ig-muted text-center py-10">
-              No stories to add yet.
+              {t("highlight.noStories")}
             </p>
           ) : (
             <div className="grid grid-cols-3 gap-1">
@@ -125,14 +127,14 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
 
         <div className="px-4 py-3 border-t border-ig-border shrink-0 flex items-center justify-between gap-3">
           <span className="text-xs text-ig-muted">
-            {selected.length} selected
+            {t("highlight.selected", { n: selected.length })}
           </span>
           <button
             onClick={handleCreate}
             disabled={saving || !selected.length}
             className="px-5 py-2 bg-[#0095f6] text-white text-sm font-semibold rounded-lg hover:bg-[#1877f2] disabled:opacity-50 transition-colors"
           >
-            {saving ? "Creating…" : "Create"}
+            {saving ? t("highlight.creating") : t("highlight.create")}
           </button>
         </div>
       </div>

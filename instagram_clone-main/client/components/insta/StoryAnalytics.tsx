@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, Eye, Users, CheckCircle2, Heart, MessageCircle } from "lucide-react";
 import axiosInstance from "@/lib/axios";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { socket } from "@/lib/socket";
 import { toast } from "../ui/toast";
 
@@ -82,10 +83,11 @@ function StatCard({
 }
 
 function TimelineChart({ data }: { data: { hour: string; views: number }[] }) {
+  const { t } = useLanguage();
   if (!data.length) {
     return (
       <p className="text-sm text-ig-muted py-6 text-center">
-        No views recorded yet.
+        {t("analytics.noViews")}
       </p>
     );
   }
@@ -129,6 +131,7 @@ function TimelineChart({ data }: { data: { hour: string; views: number }[] }) {
 }
 
 const StoryAnalytics = ({ storyId, onClose }: Props) => {
+  const { t } = useLanguage();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -156,8 +159,8 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
           type: "error",
           title:
             error?.response?.status === 403
-              ? "Not your story"
-              : "Failed to load analytics",
+              ? t("analytics.notYourStory")
+              : t("analytics.loadFailed"),
         });
       } finally {
         setLoading(false);
@@ -221,10 +224,10 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
   }, []);
 
   const kindLabel = (e: LiveEvent) => {
-    if (e.kind === "view") return "viewed your story";
-    if (e.kind === "completed") return "watched to the end";
-    if (e.kind === "reaction") return `reacted ${e.emoji || ""}`;
-    if (e.kind === "reply") return "replied to your story";
+    if (e.kind === "view") return t("analytics.viewedYourStory");
+    if (e.kind === "completed") return t("analytics.watchedToEnd");
+    if (e.kind === "reaction") return t("analytics.reacted", { emoji: e.emoji || "" });
+    if (e.kind === "reply") return t("analytics.repliedYourStory");
     return e.kind;
   };
 
@@ -234,15 +237,15 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
         <div className="sticky top-0 bg-ig-surface flex items-center justify-between px-4 py-3 border-b border-ig-border z-10">
           <div>
             <h2 className="text-sm font-semibold text-ig-text">
-              Story analytics
+              {t("analytics.title")}
             </h2>
             {analytics && (
               <p className="text-[11px] text-ig-muted">
                 {analytics.isArchived
-                  ? "Archived · analytics retained"
+                  ? t("analytics.archived")
                   : analytics.isActive
-                    ? "Live · updates in real time"
-                    : "Expired"}
+                    ? t("analytics.live")
+                    : t("analytics.expired")}
               </p>
             )}
           </div>
@@ -256,7 +259,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
 
         {loading || !analytics ? (
           <div className="flex justify-center py-20 text-ig-muted text-sm">
-            Loading analytics…
+            {t("analytics.loading")}
           </div>
         ) : (
           <div className="p-4 flex flex-col gap-5">
@@ -264,29 +267,29 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             <div className="flex flex-wrap gap-3">
               <StatCard
                 icon={Eye}
-                label="Views"
+                label={t("analytics.views")}
                 value={analytics.viewsCount}
               />
               <StatCard
                 icon={Users}
-                label="Unique viewers"
+                label={t("analytics.uniqueViewers")}
                 value={analytics.uniqueViewers}
               />
               <StatCard
                 icon={CheckCircle2}
-                label="Completion"
+                label={t("analytics.completion")}
                 value={`${analytics.completionRate}%`}
                 accent="text-[#0095f6]"
               />
               <StatCard
                 icon={Heart}
-                label="Reactions"
+                label={t("analytics.reactions")}
                 value={analytics.reactionsCount}
                 accent="text-[#ed4956]"
               />
               <StatCard
                 icon={MessageCircle}
-                label="Replies"
+                label={t("analytics.replies")}
                 value={analytics.repliesCount}
               />
             </div>
@@ -294,7 +297,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             {/* Timeline */}
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ig-muted mb-2">
-                View timeline
+                {t("analytics.viewTimeline")}
               </h3>
               <TimelineChart data={analytics.timeline} />
             </section>
@@ -303,7 +306,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             {analytics.reactions.length > 0 && (
               <section>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-ig-muted mb-2">
-                  Reactions
+                  {t("analytics.reactions")}
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {analytics.reactions.map((r) => {
@@ -337,7 +340,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             {live.length > 0 && (
               <section>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-ig-muted mb-2">
-                  Live activity
+                  {t("analytics.liveActivity")}
                 </h3>
                 <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
                   {live.map((e) => (
@@ -353,10 +356,10 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             {/* Viewers */}
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ig-muted mb-2">
-                Viewers ({analytics.viewsCount})
+                {t("analytics.viewers")} ({analytics.viewsCount})
               </h3>
               {analytics.viewers.length === 0 ? (
-                <p className="text-sm text-ig-muted">No viewers yet.</p>
+                <p className="text-sm text-ig-muted">{t("analytics.noViewers")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {analytics.viewers.map((v) => (
@@ -376,7 +379,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
                       </div>
                       {v.completed && (
                         <span className="text-[10px] text-[#0095f6] font-semibold">
-                          completed
+                          {t("analytics.completed")}
                         </span>
                       )}
                     </div>
@@ -388,7 +391,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
                   onClick={() => load(page + 1, true)}
                   className="mt-3 text-sm font-semibold text-[#0095f6] hover:text-[#1877f2]"
                 >
-                  Load more
+                  {t("analytics.loadMore")}
                 </button>
               )}
             </section>
@@ -397,7 +400,7 @@ const StoryAnalytics = ({ storyId, onClose }: Props) => {
             {analytics.replies.length > 0 && (
               <section>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-ig-muted mb-2">
-                  Replies
+                  {t("analytics.replies")}
                 </h3>
                 <div className="flex flex-col gap-2">
                   {analytics.replies.map((r) => (

@@ -5,6 +5,7 @@ import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import StoryViewer from "./StoryViewer";
 import CreateStoryModal from "./CreateStoryModal";
 import useAuthStore from "@/store/authStore";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { fetchStoryFeed, StoryGroup } from "@/lib/story.service";
 
 function StoryRing({
@@ -56,6 +57,7 @@ function StoryRing({
 
 export default function Stories() {
   const me = useAuthStore((state) => state.user);
+  const { t } = useLanguage();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [openCreate, setOpenCreate] = useState(false);
@@ -141,7 +143,7 @@ export default function Stories() {
         {canScrollLeft && (
           <button
             onClick={() => scrollBy("left")}
-            aria-label="Scroll stories left"
+            aria-label={t("story.scrollLeft")}
             className="hidden md:flex absolute left-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-ig-surface border border-ig-border items-center justify-center shadow-sm hover:bg-ig-hover transition-colors"
           >
             <ChevronLeft size={16} className="text-ig-text" />
@@ -150,7 +152,7 @@ export default function Stories() {
         {canScrollRight && (
           <button
             onClick={() => scrollBy("right")}
-            aria-label="Scroll stories right"
+            aria-label={t("story.scrollRight")}
             className="hidden md:flex absolute right-1 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-ig-surface border border-ig-border items-center justify-center shadow-sm hover:bg-ig-hover transition-colors"
           >
             <ChevronRight size={16} className="text-ig-text" />
@@ -164,7 +166,7 @@ export default function Stories() {
           {ownGroup ? (
             <StoryRing
               avatar={ownGroup.user.profilePicture}
-              label="Your story"
+              label={t("story.yourStory")}
               isSelf
               hasStory
               viewed={groupIsSeen(ownGroup)}
@@ -173,7 +175,7 @@ export default function Stories() {
           ) : (
             <StoryRing
               avatar={me?.profilePicture || ""}
-              label="Your story"
+              label={t("story.yourStory")}
               isSelf
               hasStory={false}
               onClick={() => setOpenCreate(true)}

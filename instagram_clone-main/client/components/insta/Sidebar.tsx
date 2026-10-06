@@ -16,6 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { currentUser, mockConversations } from "@/lib/mock-data";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -27,22 +28,23 @@ import useAuthStore from "@/store/authStore";
 const Sidebar = () => {
   const totalUnread = mockConversations.reduce((s, c) => s + c.unread, 0);
   const { theme, toggle } = useTheme();
+  const { t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
   const { open: openCreate } = useCreateModal();
   const navItems = [
-    { label: "Home", icon: Home, href: "/", badge: 0 },
-    { label: "Search", icon: Search, href: "/search", badge: 0 },
-    { label: "Explore", icon: Compass, href: "/explore", badge: 0 },
-    { label: "Reels", icon: Film, href: "/reels", badge: 0 },
+    { label: t("nav.home"), icon: Home, href: "/", badge: 0 },
+    { label: t("nav.search"), icon: Search, href: "/search", badge: 0 },
+    { label: t("nav.explore"), icon: Compass, href: "/explore", badge: 0 },
+    { label: t("nav.reels"), icon: Film, href: "/reels", badge: 0 },
     {
-      label: "Messages",
+      label: t("nav.messages"),
       icon: MessageCircle,
       href: "/messages",
       badge: totalUnread,
     },
-    { label: "Notifications", icon: Heart, href: "/notifications", badge: 0 },
+    { label: t("nav.notifications"), icon: Heart, href: "/notifications", badge: 0 },
   ];
   const logout = useAuthStore((state) => state.logout);
 
@@ -51,7 +53,7 @@ const Sidebar = () => {
 
     toast.add({
       type: "success",
-      title: "Logout Successfully",
+      title: t("toast.logoutSuccess"),
     });
     router.push("/login");
   };
@@ -129,7 +131,7 @@ const Sidebar = () => {
             className="shrink-0 text-ig-text"
           />
           <span className="hidden xl:block text-[15px] text-ig-text font-normal">
-            Create
+            {t("nav.create")}
           </span>
         </button>
 
@@ -146,7 +148,7 @@ const Sidebar = () => {
             />
           </div>
           <span className="hidden xl:block text-[15px] text-ig-text">
-            Profile
+            {t("nav.profile")}
           </span>
         </Link>
       </div>
@@ -155,10 +157,17 @@ const Sidebar = () => {
       <div className="relative">
         {moreOpen && (
           <div className="absolute bottom-14 left-0 w-[250px] bg-whiterounded-2xl shadow-xl border border-ig-border overflow-hidden z-50">
+            <Link
+              href="/settings"
+              onClick={() => setMoreOpen(false)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-ig-text hover:bg-ig-hover transition-colors"
+            >
+              <Settings size={18} />
+              {t("nav.settings")}
+            </Link>
             {[
-              { icon: Settings, label: "Settings" },
-              { icon: Activity, label: "Your activity" },
-              { icon: Bookmark, label: "Saved" },
+              { icon: Activity, label: t("nav.activity") },
+              { icon: Bookmark, label: t("nav.saved") },
             ].map(({ icon: Icon, label }) => (
               <button
                 key={label}
@@ -174,7 +183,7 @@ const Sidebar = () => {
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-ig-text hover:bg-ig-hover transition-colors"
             >
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
-              {theme === "light" ? "Switch to dark" : "Switch to light"}
+              {theme === "light" ? t("theme.toDark") : t("theme.toLight")}
             </button>
             <div className="h-px bg-ig-border my-1" />
             <button
@@ -182,7 +191,7 @@ const Sidebar = () => {
               onClick={handlelogout}
             >
               <LogOut size={18} />
-              Log out
+              {t("nav.logout")}
             </button>
           </div>
         )}
@@ -191,7 +200,7 @@ const Sidebar = () => {
           className="flex items-center gap-4 px-3 py-3 rounded-lg hover:bg-ig-hover transition-colors w-full"
         >
           <Menu size={24} strokeWidth={1.5} className="text-ig-text shrink-0" />
-          <span className="hidden xl:block text-[15px] text-ig-text">More</span>
+          <span className="hidden xl:block text-[15px] text-ig-text">{t("nav.more")}</span>
         </button>
       </div>
     </aside>

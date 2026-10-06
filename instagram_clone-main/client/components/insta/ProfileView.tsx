@@ -28,6 +28,7 @@ import StoryViewer from "./StoryViewer";
 import CreateHighlightModal from "./CreateHighlightModal";
 import CloseFriendsModal from "./CloseFriendsModal";
 import axiosInstance from "@/lib/axios";
+import { useLanguage } from "@/lib/LanguageProvider";
 import {
   fetchHighlights,
   fetchHighlightDetail,
@@ -38,6 +39,7 @@ import { StoryGroup } from "@/lib/story.service";
 type Tab = "posts" | "reels" | "saved" | "tagged";
 const ProfileView = ({ user, isOwnProfile }: any) => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>("posts");
   const [following, setFollowing] = useState(user.user.followingCount);
   const [followerCount, setFollowerCount] = useState(user.user.followersCount);
@@ -100,12 +102,12 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
   };
 
   const tabs = [
-    { id: "posts" as Tab, icon: Grid3x3, label: "Posts" },
-    { id: "reels" as Tab, icon: Film, label: "Reels" },
+    { id: "posts" as Tab, icon: Grid3x3, label: t("profile.posts") },
+    { id: "reels" as Tab, icon: Film, label: t("profile.tab.reels") },
     ...(isOwnProfile
-      ? [{ id: "saved" as Tab, icon: Bookmark, label: "Saved" }]
+      ? [{ id: "saved" as Tab, icon: Bookmark, label: t("profile.tab.saved") }]
       : []),
-    { id: "tagged" as Tab, icon: Tag, label: "Tagged" },
+    { id: "tagged" as Tab, icon: Tag, label: t("profile.tab.tagged") },
   ];
   return (
     <div className="bg-ig-surface md:bg-ig-ig min-h-screen">
@@ -182,14 +184,14 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
               {isOwnProfile ? (
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <button className="flex-1 sm:flex-none px-4 py-[7px] text-sm font-semibold text-ig-text bg-ig-hover rounded-lg hover:bg-ig-border transition-colors text-center">
-                    Edit profile
+                    {t("profile.editProfile")}
                   </button>
                   <button className="flex-1 sm:flex-none px-4 py-[7px] text-sm font-semibold text-ig-text bg-ig-hover rounded-lg hover:bg-ig-border transition-colors text-center">
-                    View archive
+                    {t("profile.viewArchive")}
                   </button>
                   <button
                     onClick={() => setOpenCloseFriends(true)}
-                    title="Close Friends"
+                    title={t("closeFriends.title")}
                     className="p-[7px] text-ig-text hover:bg-ig-hover rounded-lg transition-colors"
                   >
                     <Star size={20} strokeWidth={1.5} />
@@ -210,16 +212,16 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                   >
                     {following ? (
                       <>
-                        <UserCheck size={15} /> Following
+                        <UserCheck size={15} /> {t("profile.following")}
                       </>
                     ) : (
                       <>
-                        <UserPlus size={15} /> Follow
+                        <UserPlus size={15} /> {t("profile.follow")}
                       </>
                     )}
                   </button>
                   <button className="flex-1 sm:flex-none px-4 py-[7px] text-sm font-semibold text-ig-text bg-ig-hover rounded-lg hover:bg-ig-border transition-colors text-center">
-                    Message
+                    {t("profile.message")}
                   </button>
                   <button className="p-[7px] text-ig-text bg-ig-hover rounded-lg hover:bg-ig-border transition-colors">
                     <MoreHorizontal size={20} />
@@ -230,19 +232,19 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
               {/* Stats — desktop only */}
               <div className="hidden md:flex items-center gap-8 mb-4">
                 <div className="text-sm text-ig-text">
-                  <span className="font-semibold">{posts.length}</span> posts
+                  <span className="font-semibold">{posts.length}</span> {t("profile.postsCount")}
                 </div>
                 <button className="text-sm text-ig-text hover:opacity-70">
                   <span className="font-semibold">
                     {formatLikeCount(followerCount)}
                   </span>{" "}
-                  followers
+                  {t("profile.followersCount")}
                 </button>
                 <button className="text-sm text-ig-text hover:opacity-70">
                   <span className="font-semibold">
                     {formatLikeCount(following)}
                   </span>{" "}
-                  following
+                  {t("profile.followingCount")}
                 </button>
               </div>
 
@@ -293,9 +295,9 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
           {/* Stats row — mobile */}
           <div className="md:hidden flex justify-around py-3 border-y border-ig-border mb-5">
             {[
-              { label: "posts", value: posts.length },
-              { label: "followers", value: followerCount },
-              { label: "following", value: user.user.followingCount },
+              { label: t("profile.postsCount"), value: posts.length },
+              { label: t("profile.followersCount"), value: followerCount },
+              { label: t("profile.followingCount"), value: user.user.followingCount },
             ].map(({ label, value }) => (
               <button
                 key={label}
@@ -343,7 +345,7 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                     +
                   </span>
                 </div>
-                <span className="text-xs text-ig-text">New</span>
+                <span className="text-xs text-ig-text">{t("profile.new")}</span>
               </button>
             )}
           </div>
@@ -395,11 +397,11 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                     </svg>
                   </div>
                   <p className="text-2xl font-semibold text-ig-text">
-                    No Posts Yet
+                    {t("profile.noPostsYet")}
                   </p>
                   {isOwnProfile && (
                     <p className="text-sm text-ig-muted">
-                      Start capturing and sharing your moments.
+                      {t("profile.startCapturing")}
                     </p>
                   )}
                 </div>
@@ -458,16 +460,14 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                 )}
               </div>
               <p className="text-2xl font-semibold text-ig-text">
-                {activeTab === "reels" && "No Reels Yet"}
-                {activeTab === "saved" && "Save"}
-                {activeTab === "tagged" && "Photos of You"}
+                {activeTab === "reels" && t("profile.noReelsYet")}
+                {activeTab === "saved" && t("profile.savedTitle")}
+                {activeTab === "tagged" && t("profile.photosOfYou")}
               </p>
               <p className="text-sm text-ig-muted text-center max-w-[220px]">
-                {activeTab === "reels" && "Reels you share will appear here."}
-                {activeTab === "saved" &&
-                  "Save photos and videos that you want to see again."}
-                {activeTab === "tagged" &&
-                  "When people tag you in photos and videos, they'll appear here."}
+                {activeTab === "reels" && t("profile.reelsEmpty")}
+                {activeTab === "saved" && t("profile.savedEmpty")}
+                {activeTab === "tagged" && t("profile.taggedEmpty")}
               </p>
             </div>
           )}

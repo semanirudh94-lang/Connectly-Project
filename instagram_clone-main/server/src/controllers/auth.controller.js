@@ -6,9 +6,19 @@ import {
 } from "../utils/generateToken.js";
 import Post from "../models/Post.model.js";
 import Like from "../models/Like.model.js";
+
+// Strip secret fields before a user document is ever sent to the client.
+const sanitizeUser = (user) => {
+  const obj = user.toObject ? user.toObject() : { ...user };
+  delete obj.password;
+  delete obj.refreshToken;
+  return obj;
+};
+
 export const register = async (req, res) => {
   try {
-    const { username, fullName, email, password, profilePicture } = req.body;
+    const { username, fullName, email, password, profilePicture, phone } =
+      req.body;
     if (!username || !fullName || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -31,6 +41,7 @@ export const register = async (req, res) => {
       email,
       password: hashedPassword,
       profilePicture,
+      phone: phone || "",
     });
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -40,7 +51,7 @@ export const register = async (req, res) => {
       success: true,
       message: "User Created Successfully",
       accessToken,
-      user: user,
+      user: sanitizeUser(user),
     });
   } catch (error) {
     console.log(error);
@@ -85,7 +96,7 @@ export const login = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User Created Successfully",
-      user: user,
+      user: sanitizeUser(user),
       accessToken,
     });
   } catch (error) {

@@ -18,6 +18,16 @@ const userSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    phone: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    language: {
+      type: String,
+      default: "en",
+      enum: ["en", "es", "hi", "pt", "zh", "fr"],
+    },
     password: {
       type: String,
       required: true,

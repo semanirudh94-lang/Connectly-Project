@@ -5,6 +5,7 @@ import { ChevronDown, ChevronLeft, ImageIcon, MapPin, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { uploadImage } from "@/lib/imgbb.service";
 import axiosInstance from "@/lib/axios";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { toast } from "../ui/toast";
 type Stage = "select" | "crop" | "share";
 type AspectRatio = "original" | "1:1" | "4:5" | "16:9";
@@ -32,6 +33,7 @@ interface CreatePostModalProps {
 }
 
 const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
+  const { t } = useLanguage();
   const [stage, setStage] = useState<Stage>("select");
   const [image, setImage] = useState<string | null>(null);
   const [ratio, setRatio] = useState<AspectRatio>("1:1");
@@ -48,7 +50,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
     if (!caption.trim()) {
       toast.add({
         type: "error",
-        title: "Write a caption first",
+        title: t("create.captionFirst"),
       });
       return;
     }
@@ -63,7 +65,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.message || "Failed to enhance caption",
+        title: error?.message || t("create.captionFailed"),
       });
     } finally {
       setEnhancedCaption(false);
@@ -118,7 +120,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
       if (res.data.success) {
         toast.add({
           type: "success",
-          title: "Posted Successfulle",
+          title: t("create.postedSuccess"),
         });
       }
       setTimeout(() => {
@@ -140,9 +142,9 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
   };
   const imgClass = aspectOptions.find((o) => o.value === ratio)?.css ?? "";
   const title = {
-    select: "Create new post",
-    crop: "Crop",
-    share: "Create new post",
+    select: t("create.title"),
+    crop: t("create.crop"),
+    share: t("create.title"),
   }[stage];
   const handleBack = () => {
     if (stage === "share") setStage("crop");
@@ -177,7 +179,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
               onClick={() => setStage("share")}
               className="text-sm font-semibold text-[#0095f6] hover:text-[#1877f2] transition-colors"
             >
-              Next
+              {t("common.next")}
             </button>
           ) : (
             <button
@@ -185,7 +187,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
               disabled={sharing || shared}
               className="text-sm font-semibold text-[#0095f6] hover:text-[#1877f2] disabled:opacity-50 transition-colors"
             >
-              {shared ? "Shared!" : sharing ? "Sharing…" : "Share"}
+              {shared ? t("create.shared") : sharing ? t("create.sharing") : t("create.share")}
             </button>
           )}
         </div>
@@ -216,8 +218,8 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                 </div>
                 <p className="text-xl text-ig-text">
                   {dragging
-                    ? "Drop your photo here"
-                    : "Drag photos and videos here"}
+                    ? t("create.dropHere")
+                    : t("create.dragHere")}
                 </p>
                 <input
                   ref={fileRef}
@@ -231,12 +233,12 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                   onClickCapture={() => fileRef.current?.click()}
                   className="px-5 py-2 bg-[#0095f6] text-white text-sm font-semibold rounded-lg hover:bg-[#1877f2] transition-colors"
                 >
-                  Select from computer
+                  {t("story.selectFromComputer")}
                 </button>
               </div>
               <div className="p-4">
                 <p className="text-sm font-semibold text-ig-text mb-3">
-                  Or choose a sample photo
+                  {t("create.samplePhotos")}
                 </p>
                 <div className="grid grid-cols-4 gap-1">
                   {sampleImages.map((url, i) => (
@@ -285,7 +287,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                         : "bg-ig-hover text-ig-muted hover:bg-ig-border"
                     }`}
                   >
-                    {label}
+                    {value === "original" ? t("create.ratio.original") : label}
                   </button>
                 ))}
               </div>
@@ -323,12 +325,12 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                       disabled={enhancedCaption}
                       className="text-xs font-semibold text-[#0095f6] hover:text-[#1877f2] disabled:opacity-50 bg-gray-200 p-2 rounded-xl"
                     >
-                      {enhancedCaption ? "Enhancing..." : "✨ AI Enhance"}
+                      {enhancedCaption ? t("create.enhancing") : t("create.aiEnhance")}
                     </button>
                     <textarea
                       value={caption}
                       onChange={(e) => setCaption(e.target.value)}
-                      placeholder="Write a caption…"
+                      placeholder={t("create.captionPlaceholder")}
                       rows={5}
                       maxLength={2200}
                       className="w-full text-sm text-ig-text placeholder:text-ig-muted outline-none resize-none"
@@ -347,7 +349,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Add location"
+                    placeholder={t("create.addLocation")}
                     className="text-sm text-ig-text placeholder:text-ig-muted outline-none flex-1 bg-transparent"
                   />
                   <MapPin size={18} className="text-ig-muted shrink-0" />
@@ -359,7 +361,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                     onClick={() => setAccessOpen((o) => !o)}
                     className="flex items-center justify-between w-full px-4 py-3"
                   >
-                    <span className="text-sm text-ig-text">Accessibility</span>
+                    <span className="text-sm text-ig-text">{t("create.accessibility")}</span>
                     <ChevronDown
                       size={18}
                       className={`text-ig-muted transition-transform duration-200 ${accessOpen ? "rotate-180" : ""}`}
@@ -368,12 +370,11 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                   {accessOpen && (
                     <div className="px-4 pb-4">
                       <p className="text-xs text-ig-muted mb-2">
-                        Alt text describes your photo for people with visual
-                        impairments.
+                        {t("create.altTextDesc")}
                       </p>
                       <input
                         type="text"
-                        placeholder="Write alt text…"
+                        placeholder={t("create.altTextPlaceholder")}
                         className="w-full text-xs text-ig-text border border-ig-border rounded px-3 py-2 outline-none focus:border-ig-muted"
                       />
                     </div>
@@ -387,7 +388,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                     className="flex items-center justify-between w-full px-4 py-3"
                   >
                     <span className="text-sm text-ig-text">
-                      Advanced settings
+                      {t("create.advanced")}
                     </span>
                     <ChevronDown
                       size={18}
@@ -398,12 +399,12 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                     <div className="px-4 pb-4 flex flex-col gap-4">
                       {[
                         {
-                          label: "Hide like and view counts",
-                          sub: "Only you will see the total number of likes and views on this post.",
+                          label: t("create.hideLikes"),
+                          sub: t("create.hideLikesSub"),
                         },
                         {
-                          label: "Turn off commenting",
-                          sub: "You can change this later by going to the post.",
+                          label: t("create.turnOffCommenting"),
+                          sub: t("create.turnOffCommentingSub"),
                         },
                       ].map(({ label, sub }) => (
                         <div
@@ -442,7 +443,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                       </svg>
                     </div>
                     <p className="text-lg font-semibold text-ig-text">
-                      Your post has been shared.
+                      {t("create.postShared")}
                     </p>
                   </div>
                 )}

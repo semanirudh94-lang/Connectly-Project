@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Globe, Users, Star, X, ImageIcon, Film, Trash2 } from "lucide-react";
+import { useLanguage } from "@/lib/LanguageProvider";
 import {
   uploadStoryMedia,
   createStory,
@@ -12,21 +13,21 @@ import { toast } from "../ui/toast";
 
 const PRIVACY_OPTIONS: {
   value: StoryPrivacy;
-  label: string;
-  sub: string;
+  labelKey: string;
+  subKey: string;
   icon: any;
 }[] = [
-  { value: "public", label: "Public", sub: "Anyone can see", icon: Globe },
+  { value: "public", labelKey: "story.privacy.public", subKey: "story.privacy.publicSub", icon: Globe },
   {
     value: "followers",
-    label: "Followers",
-    sub: "Only your followers",
+    labelKey: "story.privacy.followers",
+    subKey: "story.privacy.followersSub",
     icon: Users,
   },
   {
     value: "close_friends",
-    label: "Close Friends",
-    sub: "Only your close friends list",
+    labelKey: "story.privacy.closeFriends",
+    subKey: "story.privacy.closeFriendsSub",
     icon: Star,
   },
 ];
@@ -43,6 +44,7 @@ interface Draft {
 }
 
 const CreateStoryModal = ({ onClose, onCreated }: Props) => {
+  const { t } = useLanguage();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [privacy, setPrivacy] = useState<StoryPrivacy>("public");
   const [uploading, setUploading] = useState(false);
@@ -82,14 +84,14 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
         uploaded.push(await uploadStoryMedia(d.file));
       }
       await createStory(uploaded, privacy);
-      toast.add({ type: "success", title: "Story shared" });
+      toast.add({ type: "success", title: t("story.shared") });
       drafts.forEach((d) => URL.revokeObjectURL(d.previewUrl));
       onCreated();
       onClose();
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.response?.data?.message || "Failed to share story",
+        title: error?.response?.data?.message || t("story.shareFailed"),
       });
     } finally {
       setUploading(false);
@@ -100,7 +102,7 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
     <div className="fixed inset-0 z-[160] bg-black/70 flex items-center justify-center p-4">
       <div className="bg-ig-surface rounded-xl overflow-hidden w-full max-w-[520px] shadow-2xl flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-ig-border shrink-0">
-          <h2 className="text-sm font-semibold text-ig-text">New story</h2>
+          <h2 className="text-sm font-semibold text-ig-text">{t("story.newStory")}</h2>
           <button
             onClick={onClose}
             className="p-1 text-ig-text hover:opacity-60 transition-opacity"
@@ -118,9 +120,9 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
               <div className="w-20 h-20 rounded-full bg-ig-hover flex items-center justify-center">
                 <ImageIcon size={40} strokeWidth={1} className="text-ig-text" />
               </div>
-              <p className="text-lg text-ig-text">Add photos or videos</p>
+              <p className="text-lg text-ig-text">{t("story.addPhotos")}</p>
               <span className="px-5 py-2 bg-[#0095f6] text-white text-sm font-semibold rounded-lg">
-                Select from computer
+                {t("story.selectFromComputer")}
               </span>
             </div>
           ) : (
@@ -183,10 +185,10 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
 
           <div className="px-4 pb-4 pt-2 border-t border-ig-border">
             <p className="text-xs font-semibold text-ig-muted mb-2">
-              Who can see this?
+              {t("story.whoCanSee")}
             </p>
             <div className="flex flex-col gap-1">
-              {PRIVACY_OPTIONS.map(({ value, label, sub, icon: Icon }) => (
+              {PRIVACY_OPTIONS.map(({ value, labelKey, subKey, icon: Icon }) => (
                 <button
                   key={value}
                   onClick={() => setPrivacy(value)}
@@ -201,8 +203,8 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
                     }
                   />
                   <div className="flex-1">
-                    <p className="text-sm text-ig-text font-medium">{label}</p>
-                    <p className="text-xs text-ig-muted">{sub}</p>
+                    <p className="text-sm text-ig-text font-medium">{t(labelKey)}</p>
+                    <p className="text-xs text-ig-muted">{t(subKey)}</p>
                   </div>
                   <div
                     className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
@@ -227,7 +229,7 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
             disabled={!drafts.length || uploading}
             className="w-full py-2 bg-[#0095f6] text-white text-sm font-semibold rounded-lg hover:bg-[#1877f2] disabled:opacity-50 transition-colors"
           >
-            {uploading ? "Sharing…" : "Share story"}
+            {uploading ? t("story.sharing") : t("story.shareStory")}
           </button>
         </div>
       </div>

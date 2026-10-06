@@ -1,10 +1,12 @@
 "use client";
 
 import { currentUser, suggestedUsers } from "@/lib/mock-data";
+import { useLanguage } from "@/lib/LanguageProvider";
 import Link from "next/link";
 import { useState } from "react";
 
 const RightSidebar = () => {
+  const { t } = useLanguage();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const toggleFollow = (id: string) => {
     setFollowed((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -34,15 +36,15 @@ const RightSidebar = () => {
           href="/login"
           className="text-xs font-semibold text-[#0095f6] hover:text-[#1877f2] transition-colors shrink-0"
         >
-          Switch
+          {t("right.switch")}
         </Link>
       </div>
 
       {/* Suggested */}
       <div className="flex items-center justify-between mb-3 px-1">
-        <p className="text-sm font-semibold text-ig-muted">Suggested for you</p>
+        <p className="text-sm font-semibold text-ig-muted">{t("right.suggested")}</p>
         <Link href="/explore" className="text-xs font-semibold text-ig-text hover:opacity-70">
-          See All
+          {t("right.seeAll")}
         </Link>
       </div>
 
@@ -74,8 +76,8 @@ const RightSidebar = () => {
               </div>
               <p className="text-xs text-ig-muted truncate">
                 {user.followers.length > 0
-                  ? `Followed by ${user.followers.length} people`
-                  : "Suggested for you"}
+                  ? t("right.followedBy", { n: user.followers.length })
+                  : t("right.suggestedForYou")}
               </p>
             </div>
             <button
@@ -86,7 +88,7 @@ const RightSidebar = () => {
                   : "text-[#0095f6] hover:text-[#1877f2] dark:text-[#38b6ff] dark:hover:text-[#5cc8ff]"
               }`}
             >
-              {followed[user._id] ? "Following" : "Follow"}
+              {followed[user._id] ? t("profile.following") : t("profile.follow")}
             </button>
           </div>
         ))}
@@ -96,27 +98,27 @@ const RightSidebar = () => {
       <div className="mt-6 px-1">
         <div className="flex flex-wrap gap-x-2 gap-y-1 mb-3">
           {[
-            "About",
-            "Help",
-            "Press",
-            "API",
-            "Jobs",
-            "Privacy",
-            "Terms",
-            "Locations",
-            "Language",
-          ].map((item) => (
+            "right.about",
+            "right.help",
+            "right.press",
+            "right.api",
+            "right.jobs",
+            "right.privacy",
+            "right.terms",
+            "right.locations",
+            "right.language",
+          ].map((key) => (
             <a
-              key={item}
+              key={key}
               href="#"
               className="text-[11px] text-ig-muted hover:underline"
             >
-              {item}
+              {t(key)}
             </a>
           ))}
         </div>
         <p className="text-[11px] text-ig-muted uppercase tracking-wide">
-          &copy; 2026 Instagram from Meta
+          {t("right.copyright")}
         </p>
       </div>
     </aside>

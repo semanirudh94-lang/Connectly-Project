@@ -37,9 +37,9 @@ export interface StoryGroup {
 export const uploadStoryMedia = async (file: File): Promise<StoryMedia> => {
   const form = new FormData();
   form.append("media", file);
-  const res = await axiosInstance.post("/api/upload", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  // Do NOT set Content-Type manually — the browser must generate the
+  // multipart boundary itself, otherwise multer cannot parse the file.
+  const res = await axiosInstance.post("/api/upload", form);
   return res.data.media;
 };
 
