@@ -50,6 +50,14 @@ const userSchema = new mongoose.Schema(
     followingCount: { type: Number, default: 0 },
     PostCount: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false },
+    // ── Subscription / plan ──────────────────────────────────────────────
+    plan: {
+      type: String,
+      default: "free",
+      enum: ["free", "bronze", "silver", "gold"],
+    },
+    planExpiresAt: { type: Date, default: null },
+    planPeriodStart: { type: Date, default: null },
     closeFriends: [
       {
         type: mongoose.Schema.Types.ObjectId,

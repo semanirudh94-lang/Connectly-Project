@@ -64,3 +64,80 @@ export async function sendOtpEmail({ to, otp, minutes = 5 }) {
     throw error;
   }
 }
+
+// Sends the payment invoice + subscription details after a successful charge.
+// `amount` is in rupees (whole number); dates are formatted for the email body.
+export async function sendInvoiceEmail({
+  to,
+  fullName = "there",
+  planName,
+  amount,
+  currency = "INR",
+  paymentId,
+  orderId,
+  startDate,
+  endDate,
+  nextRenewalDate,
+  postLimit,
+}) {
+  const fmt = (d) =>
+    d ? new Date(d).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "—";
+  const limitText =
+    postLimit === null || postLimit === undefined || !Number.isFinite(postLimit)
+      ? "Unlimited posts"
+      : `Up to ${postLimit} posts`;
+
+  const subject = `Your ${planName} plan receipt — InstAI`;
+  const text = `Hi ${fullName},\n\nYour payment was successful. Here are your subscription details:\n\nPlan: ${planName}\nAmount: ${currency} ${amount}\nPosting limit: ${limitText}\nPayment ID: ${paymentId}\nOrder ID: ${orderId}\nValid from: ${fmt(startDate)}\nValid until: ${fmt(endDate)}\nNext renewal: ${fmt(nextRenewalDate)}\n\nThanks for upgrading!\n— InstAI`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #eee;border-radius:12px">
+    <h2 style="margin:0 0 4px">InstAI</h2>
+    <p style="color:#555;margin:0 0 20px">Payment receipt &amp; subscription details</p>
+    <p style="margin:0 0 16px">Hi ${fullName}, your payment was successful. You're now on the <strong>${planName}</strong> plan.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${[
+        ["Plan", planName],
+        ["Amount paid", `${currency} ${amount}`],
+        ["Posting limit", limitText],
+        ["Payment ID", paymentId],
+        ["Order ID", orderId],
+        ["Valid from", fmt(startDate)],
+        ["Valid until", fmt(endDate)],
+        ["Next renewal", fmt(nextRenewalDate)],
+      ]
+        .map(
+          ([k, v]) =>
+            `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#888">${k}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#111;font-weight:600;text-align:right">${v}</td></tr>`,
+        )
+        .join("")}
+    </table>
+    <p style="color:#999;font-size:12px;margin-top:20px">Keep this email as your invoice. Your plan renews on ${fmt(nextRenewalDate)}.</p>
+  </div>`;
+
+  const transporter = getTransporter();
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER || "no-reply@instai.local",
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (info?.stub) {
+      console.log(
+        `\n[EMAIL STUB] Invoice for ${to} => ${planName} plan, ${currency} ${amount}, ` +
+          `payment ${paymentId}, valid ${fmt(startDate)} → ${fmt(endDate)}, renews ${fmt(nextRenewalDate)} ` +
+          `(set EMAIL_USER/EMAIL_PASS in .env to send real mail)\n`,
+      );
+      return { delivered: false, mode: "console" };
+    }
+
+    const preview = nodemailer.getTestMessageUrl?.(info);
+    if (preview) console.log(`[mailer] invoice preview: ${preview}`);
+    return { delivered: true, mode: "smtp" };
+  } catch (error) {
+    console.log("[mailer] invoice send failed:", error.message);
+    throw error;
+  }
+}

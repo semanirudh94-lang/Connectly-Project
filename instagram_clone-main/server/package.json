@@ -27,6 +27,8 @@
     "node-cron": "^4.6.0",
     "nodemailer": "^10.0.14",
     "nodemon": "^3.1.14",
-    "socket.io": "^4.8.3"
+    "razorpay": "^2.9.8",
+    "socket.io": "^4.8.3",
+    "ua-parser-js": "^2.0.10"
   }
 }

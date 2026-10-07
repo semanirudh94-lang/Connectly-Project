@@ -18,6 +18,7 @@ import {
   UserCheck,
   ChevronLeft,
   Star,
+  Shield,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -27,6 +28,7 @@ import PostModal from "./PostModal";
 import StoryViewer from "./StoryViewer";
 import CreateHighlightModal from "./CreateHighlightModal";
 import CloseFriendsModal from "./CloseFriendsModal";
+import LoginHistoryModal from "./LoginHistoryModal";
 import axiosInstance from "@/lib/axios";
 import { useLanguage } from "@/lib/LanguageProvider";
 import {
@@ -48,6 +50,7 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
   const [highlightGroup, setHighlightGroup] = useState<StoryGroup | null>(null);
   const [openCreateHighlight, setOpenCreateHighlight] = useState(false);
   const [openCloseFriends, setOpenCloseFriends] = useState(false);
+  const [openLoginHistory, setOpenLoginHistory] = useState(false);
   const posts = user.posts;
 
   const loadHighlights = async () => {
@@ -195,6 +198,13 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                     className="p-[7px] text-ig-text hover:bg-ig-hover rounded-lg transition-colors"
                   >
                     <Star size={20} strokeWidth={1.5} />
+                  </button>
+                  <button
+                    onClick={() => setOpenLoginHistory(true)}
+                    title={t("loginHistory.title")}
+                    className="p-[7px] text-ig-text hover:bg-ig-hover rounded-lg transition-colors"
+                  >
+                    <Shield size={20} strokeWidth={1.5} />
                   </button>
                   <button className="p-[7px] text-ig-text hover:bg-ig-hover rounded-lg transition-colors">
                     <Settings size={20} strokeWidth={1.5} />
@@ -489,6 +499,9 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
       )}
       {openCloseFriends && (
         <CloseFriendsModal onClose={() => setOpenCloseFriends(false)} />
+      )}
+      {openLoginHistory && (
+        <LoginHistoryModal onClose={() => setOpenLoginHistory(false)} />
       )}
       {/* {selectedPost && (
         <PostModal

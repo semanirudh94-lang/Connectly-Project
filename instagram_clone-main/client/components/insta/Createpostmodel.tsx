@@ -136,7 +136,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error.message,
+        title: error?.response?.data?.message || error.message,
       });
     }
   };

@@ -5,9 +5,13 @@ import useAuthStore from "@/store/authStore";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axiosInstance from "@/lib/axios";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { resendLoginOtp, verifyLoginOtp } from "@/lib/auth.service";
+
+const OTP_LEN = 6;
+
 const page = () => {
   const router = useRouter();
   const { t } = useLanguage();
@@ -16,7 +20,35 @@ const page = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Chrome 2-step OTP state
+  const [otpStage, setOtpStage] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [otpTarget, setOtpTarget] = useState("");
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
+  const [otpError, setOtpError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
   const login = useAuthStore((state) => state.login);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setInterval(() => setCooldown((c) => c - 1), 1000);
+    return () => clearInterval(id);
+  }, [cooldown]);
+
+  const finishLogin = (data: { user: any; accessToken: string }) => {
+    login({ user: data.user, token: data.accessToken });
+    toast.add({
+      type: "success",
+      title: t("auth.loggingIn"),
+      description: `Hello ${data.user.username}`,
+    });
+    router.push("/");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -30,25 +62,184 @@ const page = () => {
         email: email,
         password: password,
       });
-      if (res.data.success) {
-        login({ user: res.data.user, token: res.data.accessToken });
-        toast.add({
-          type: "success",
-          title: "Login Successfulle",
-          description: `Hello ${res.data.user.username}`,
-        });
-        setLoading(false);
-        router.push("/");
+
+      // Chrome → OTP challenge; no token issued yet.
+      if (res.data.requiresOtp) {
+        setChallengeToken(res.data.challengeToken);
+        setOtpTarget(res.data.target);
+        setCooldown(res.data.resendAfter ?? 30);
+        setDigits(Array(OTP_LEN).fill(""));
+        setOtpError("");
+        setOtpStage(true);
+        toast.add({ type: "success", description: res.data.message });
+        setTimeout(() => inputsRef.current[0]?.focus(), 50);
+        return;
       }
+
+      if (res.data.success) finishLogin(res.data);
     } catch (error: any) {
       console.log(error);
+      const msg =
+        error?.response?.data?.message || error.message || "Login failed";
+      setError(msg);
       toast.add({
         type: "error",
-        description: error.message,
+        description: msg,
         priority: "high",
       });
+    } finally {
+      setLoading(false);
     }
   };
+
+  const onDigitChange = (index: number, value: string) => {
+    const clean = value.replace(/\D/g, "");
+    if (!clean) {
+      setDigits((d) => d.map((v, i) => (i === index ? "" : v)));
+      return;
+    }
+    if (clean.length > 1) {
+      const next = Array(OTP_LEN).fill("");
+      clean.slice(0, OTP_LEN).split("").forEach((c, i) => (next[i] = c));
+      setDigits(next);
+      inputsRef.current[Math.min(clean.length, OTP_LEN - 1)]?.focus();
+      return;
+    }
+    setDigits((d) => d.map((v, i) => (i === index ? clean : v)));
+    if (index < OTP_LEN - 1) inputsRef.current[index + 1]?.focus();
+  };
+
+  const onDigitKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Backspace" && !digits[index] && index > 0) {
+      inputsRef.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const otp = digits.join("");
+    if (otp.length !== OTP_LEN) {
+      setOtpError(t("loginSecurity.enterCode"));
+      return;
+    }
+    setVerifying(true);
+    setOtpError("");
+    try {
+      const data = await verifyLoginOtp(challengeToken, otp);
+      finishLogin(data);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || "Verification failed";
+      setOtpError(msg);
+      if (status === 429) {
+        toast.add({ type: "error", title: t("loginSecurity.locked") });
+        setOtpStage(false);
+      }
+      setDigits(Array(OTP_LEN).fill(""));
+      inputsRef.current[0]?.focus();
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!challengeToken || cooldown > 0) return;
+    try {
+      const r = await resendLoginOtp(challengeToken);
+      setCooldown(r.resendAfter ?? 30);
+      setDigits(Array(OTP_LEN).fill(""));
+      toast.add({ type: "success", description: r.message });
+      inputsRef.current[0]?.focus();
+    } catch (err: any) {
+      setOtpError(err?.response?.data?.message || "Could not resend");
+    }
+  };
+
+  const backToLogin = () => {
+    setOtpStage(false);
+    setChallengeToken("");
+    setDigits(Array(OTP_LEN).fill(""));
+    setOtpError("");
+  };
+
+  if (otpStage) {
+    return (
+      <div className="min-h-screen bg-ig-bg flex items-center justify-center px-4">
+        <div className="w-full max-w-[380px] bg-ig-surface border border-ig-border rounded-sm px-8 pt-8 pb-6">
+          <h1 className="instagram-font text-[30px] text-center text-ig-text mb-2 leading-none">
+            Instagram
+          </h1>
+          <p className="text-sm font-semibold text-ig-text text-center">
+            {t("loginSecurity.otpTitle")}
+          </p>
+          <p className="text-xs text-ig-muted text-center mt-1">
+            {t("loginSecurity.otpSent")}
+          </p>
+          {otpTarget && (
+            <p className="text-sm text-ig-text font-medium text-center mt-1 mb-5">
+              {otpTarget}
+            </p>
+          )}
+
+          <div className="flex gap-2 mb-4 justify-center">
+            {digits.map((d, i) => (
+              <input
+                key={i}
+                ref={(el) => {
+                  inputsRef.current[i] = el;
+                }}
+                value={d}
+                onChange={(e) => onDigitChange(i, e.target.value)}
+                onKeyDown={(e) => onDigitKeyDown(i, e)}
+                inputMode="numeric"
+                maxLength={OTP_LEN}
+                aria-label={`${t("loginSecurity.enterCode")} ${i + 1}`}
+                className="w-11 h-12 text-center text-xl font-semibold rounded-lg border border-ig-border bg-transparent text-ig-text focus:outline-none focus:border-ig-text"
+              />
+            ))}
+          </div>
+
+          {otpError && (
+            <p className="text-xs text-[#ed4956] text-center mb-3">{otpError}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleVerifyOtp}
+            disabled={verifying}
+            className="w-full bg-[#0095f6] text-white text-sm font-semibold rounded-lg py-[7px] disabled:opacity-50 hover:bg-[#1877f2] transition-colors"
+          >
+            {verifying ? t("loginSecurity.verifying") : t("common.verify")}
+          </button>
+
+          <div className="flex items-center justify-between mt-4">
+            <button
+              type="button"
+              onClick={backToLogin}
+              className="text-xs text-ig-muted hover:text-ig-text"
+            >
+              {t("loginSecurity.backToLogin")}
+            </button>
+            {cooldown > 0 ? (
+              <span className="text-xs text-ig-muted">
+                {t("loginSecurity.resendIn", { s: cooldown })}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                className="text-xs text-ig-text underline"
+              >
+                {t("common.resend")}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-ig-bg flex flex-col">
