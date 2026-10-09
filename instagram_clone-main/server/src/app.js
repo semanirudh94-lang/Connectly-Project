@@ -13,6 +13,8 @@ import highlightRoutes from "./routes/highlight.routes.js";
 import closeFriendsRoutes from "./routes/closeFriends.routes.js";
 import languageRoutes from "./routes/language.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
+import commentRoutes from "./routes/comment.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 dotenv.config();
 const app = express();
 
@@ -42,6 +44,8 @@ app.use("/api/highlights", highlightRoutes);
 app.use("/api/close-friends", closeFriendsRoutes);
 app.use("/api/language", languageRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/admin", adminRoutes);
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,

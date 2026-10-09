@@ -14,6 +14,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { useLanguage } from "@/lib/LanguageProvider";
@@ -47,6 +48,8 @@ const Sidebar = () => {
     { label: t("nav.notifications"), icon: Heart, href: "/notifications", badge: 0 },
   ];
   const logout = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === "admin";
 
   const handlelogout = async () => {
     logout();
@@ -157,6 +160,16 @@ const Sidebar = () => {
       <div className="relative">
         {moreOpen && (
           <div className="absolute bottom-14 left-0 w-[250px] bg-whiterounded-2xl shadow-xl border border-ig-border overflow-hidden z-50">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMoreOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-ig-text hover:bg-ig-hover transition-colors"
+              >
+                <ShieldCheck size={18} />
+                {t("admin.title")}
+              </Link>
+            )}
             <Link
               href="/settings"
               onClick={() => setMoreOpen(false)}

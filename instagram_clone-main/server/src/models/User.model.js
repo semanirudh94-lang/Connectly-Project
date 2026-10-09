@@ -41,6 +41,16 @@ const userSchema = new mongoose.Schema(
       default: "public",
       enum: ["private", "public"],
     },
+    role: {
+      type: String,
+      default: "user",
+      enum: ["user", "admin"],
+    },
+    status: {
+      type: String,
+      default: "active",
+      enum: ["active", "deactivated"],
+    },
     gender: {
       type: String,
       default: "other",
