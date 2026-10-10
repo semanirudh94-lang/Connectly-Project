@@ -11,9 +11,11 @@ export const createHighlight = async (req, res) => {
   try {
     const { name, cover, storyIds } = req.body;
     if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Highlight name required" });
+      return res.status(400).json({
+        success: false,
+        code: "highlight_name_required",
+        message: "Highlight name required",
+      });
     }
     const ids = Array.isArray(storyIds) ? storyIds : storyIds ? [storyIds] : [];
 
@@ -25,9 +27,11 @@ export const createHighlight = async (req, res) => {
     }).select("_id media privacy");
 
     if (!owned.length) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No valid stories to add" });
+      return res.status(400).json({
+        success: false,
+        code: "highlight_no_valid_stories",
+        message: "No valid stories to add",
+      });
     }
 
     const ownedIds = owned.map((s) => s._id);

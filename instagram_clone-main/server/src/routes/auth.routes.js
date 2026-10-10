@@ -5,6 +5,7 @@ import {
   verifyLoginOtp,
   resendLoginOtp,
   getLoginHistory,
+  searchUsers,
   me,
   register,
 } from "../controllers/auth.controller.js";
@@ -19,6 +20,7 @@ router.post("/login/resend", resendLoginOtp);
 router.get("/me", protect, me);
 // Must come before "/:username" so it is not captured as a profile lookup.
 router.get("/login-history", protect, getLoginHistory);
+router.get("/search/users", protect, searchUsers);
 router.get("/:username", protect, getProfileByUsername);
 
 export default router;

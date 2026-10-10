@@ -7,14 +7,15 @@ const loginHistorySchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
       index: true,
     },
+    // Set when a failed attempt could not be attributed to a user (unknown email).
+    emailAttempted: { type: String, default: "" },
     browser: { type: String, default: "Unknown" },
     os: { type: String, default: "Unknown" },
     deviceType: {
       type: String,
-      enum: ["Desktop", "Tablet", "Mobile", "Unknown"],
+      enum: ["Desktop", "Laptop", "Tablet", "Mobile", "Unknown"],
       default: "Unknown",
     },
     ip: { type: String, default: "" },
@@ -26,6 +27,7 @@ const loginHistorySchema = new mongoose.Schema(
         "otp_failed", // wrong OTP during Chrome verification
         "denied_window", // mobile login outside the allowed time window
         "pending", // Chrome login awaiting OTP
+        "expired", // challenge lapsed without verification
       ],
       required: true,
       index: true,

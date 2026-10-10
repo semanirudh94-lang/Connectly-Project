@@ -41,6 +41,7 @@ export const createStory = async (req, res) => {
     if (!mediaArr.length) {
       return res.status(400).json({
         success: false,
+        code: "story_media_required",
         message: "At least one media is required",
       });
     }
@@ -48,6 +49,7 @@ export const createStory = async (req, res) => {
       if (!m?.url || !m?.type) {
         return res.status(400).json({
           success: false,
+          code: "story_media_invalid",
           message: "Each media needs a url and type",
         });
       }
@@ -55,6 +57,7 @@ export const createStory = async (req, res) => {
     if (!["public", "followers", "close_friends"].includes(privacy)) {
       return res.status(400).json({
         success: false,
+        code: "story_privacy_invalid",
         message: "Invalid privacy",
       });
     }

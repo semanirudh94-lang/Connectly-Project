@@ -33,6 +33,11 @@ const subscriptionSchema = new mongoose.Schema(
     // True once the user asks to cancel; plan stays usable until endDate.
     cancelAtPeriodEnd: { type: Boolean, default: false },
     cancelledAt: { type: Date, default: null },
+
+    // Renewal notifications are sent at most once per subscription document.
+    autoRenew: { type: Boolean, default: true },
+    renewalReminderSentAt: { type: Date, default: null },
+    expiryNoticeSentAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

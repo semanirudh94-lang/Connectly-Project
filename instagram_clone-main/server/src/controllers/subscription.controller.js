@@ -17,7 +17,8 @@ import {
 import {
   isWithinPaymentWindow,
   verifyRazorpaySignature,
-  PAYMENTS_CLOSED_MESSAGE,
+  verifyWebhookSignature,
+  paymentsClosedMessage,
 } from "../utils/payment.js";
 import { sendInvoiceEmail } from "../services/mailer.js";
 import { computeUsage } from "../services/plan.service.js";
@@ -75,6 +76,7 @@ export const createSubscriptionOrder = async (req, res) => {
     if (!isValidPlan(plan) || !PAID_PLAN_IDS.includes(plan)) {
       return res.status(400).json({
         success: false,
+        code: "plan_invalid",
         message: "Choose a valid paid plan (bronze, silver or gold).",
       });
     }
@@ -83,7 +85,8 @@ export const createSubscriptionOrder = async (req, res) => {
     if (!isWithinPaymentWindow()) {
       return res.status(403).json({
         success: false,
-        message: PAYMENTS_CLOSED_MESSAGE,
+        code: "payments_closed_window",
+        message: paymentsClosedMessage(),
         paymentsOpen: false,
       });
     }
@@ -127,6 +130,65 @@ export const createSubscriptionOrder = async (req, res) => {
   }
 };
 
+// Marks a payment as captured and opens the plan period. Shared by the browser
+// verify flow and the Razorpay webhook so a plan is always activated identically.
+async function activatePlan({ user, payment, orderId, paymentId, signature }) {
+  const now = new Date();
+  const endDate = planEndDate(payment.plan, now);
+
+  payment.status = "success";
+  payment.paymentId = paymentId;
+  if (signature) payment.signature = signature;
+  payment.paidAt = now;
+  await payment.save();
+
+  // Retire any previous active subscription, then record the new period.
+  await Subscription.updateMany(
+    { user: user._id, status: { $in: ["active", "cancellation_scheduled"] } },
+    { $set: { status: "expired" } },
+  );
+  const subscription = await Subscription.create({
+    user: user._id,
+    plan: payment.plan,
+    orderId,
+    paymentId,
+    amount: payment.amount,
+    currency: payment.currency,
+    status: "active",
+    startDate: now,
+    endDate,
+    nextRenewalDate: endDate,
+  });
+
+  await User.findByIdAndUpdate(user._id, {
+    plan: payment.plan,
+    planExpiresAt: endDate,
+    planPeriodStart: now,
+  });
+
+  // Invoice email — best effort; never fail the payment because mail failed.
+  const planDef = getPlan(payment.plan);
+  try {
+    await sendInvoiceEmail({
+      to: user.email,
+      fullName: user.fullName,
+      planName: planDef.name,
+      amount: planDef.price,
+      currency: planDef.currency,
+      paymentId,
+      orderId,
+      startDate: now,
+      endDate,
+      nextRenewalDate: endDate,
+      postLimit: Number.isFinite(planDef.limit) ? planDef.limit : null,
+    });
+  } catch (mailErr) {
+    console.log("[subscription] invoice email failed:", mailErr.message);
+  }
+
+  return { subscription, endDate, planDef };
+}
+
 // POST /api/subscription/verify
 // body: { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan }
 export const verifyPayment = async (req, res) => {
@@ -141,14 +203,28 @@ export const verifyPayment = async (req, res) => {
     if (!orderId || !paymentId || !signature) {
       return res.status(400).json({
         success: false,
+        code: "payment_fields_missing",
         message: "Missing payment verification fields.",
       });
     }
 
-    const payment = await Payment.findOne({ orderId });
+    // Business rule — the window is re-checked here, not only at order creation,
+    // so a plan can never be activated outside 5:00–11:00 AM IST. The attempt
+    // stays "pending" so the user can finish it during an open window.
+    if (!isWithinPaymentWindow()) {
+      return res.status(403).json({
+        success: false,
+        code: "payments_closed_window",
+        message: paymentsClosedMessage(),
+        paymentsOpen: false,
+      });
+    }
+
+    const payment = await Payment.findOne({ orderId, user: req.user._id });
     if (!payment) {
       return res.status(404).json({
         success: false,
+        code: "order_not_found",
         message: "Order not found. Start the checkout again.",
       });
     }
@@ -157,6 +233,7 @@ export const verifyPayment = async (req, res) => {
     if (payment.status === "success") {
       return res.status(200).json({
         success: true,
+        code: "payment_already_verified",
         message: "Payment already verified.",
         plan: plan || payment.plan,
       });
@@ -177,69 +254,27 @@ export const verifyPayment = async (req, res) => {
       await payment.save();
       return res.status(400).json({
         success: false,
+        code: "payment_verification_failed",
         message: "Payment verification failed. You have not been charged.",
       });
     }
 
     // ── Payment is genuine — activate the plan ────────────────────────────
-    const activePlan = plan || payment.plan;
-    const now = new Date();
-    const endDate = planEndDate(activePlan, now);
-
-    payment.status = "success";
-    payment.paymentId = paymentId;
-    payment.signature = signature;
-    payment.paidAt = now;
-    await payment.save();
-
-    // Retire any previous active subscription, then record the new period.
-    await Subscription.updateMany(
-      { user: req.user._id, status: { $in: ["active", "cancellation_scheduled"] } },
-      { $set: { status: "expired" } },
-    );
-    const subscription = await Subscription.create({
-      user: req.user._id,
-      plan: activePlan,
+    if (plan && plan !== payment.plan) {
+      payment.plan = plan;
+    }
+    const { endDate, planDef } = await activatePlan({
+      user: req.user,
+      payment,
       orderId,
       paymentId,
-      amount: payment.amount,
-      currency: payment.currency,
-      status: "active",
-      startDate: now,
-      endDate,
-      nextRenewalDate: endDate,
+      signature,
     });
-
-    await User.findByIdAndUpdate(req.user._id, {
-      plan: activePlan,
-      planExpiresAt: endDate,
-      planPeriodStart: now,
-    });
-
-    // Invoice email — best effort; never fail the payment because mail failed.
-    const planDef = getPlan(activePlan);
-    try {
-      await sendInvoiceEmail({
-        to: req.user.email,
-        fullName: req.user.fullName,
-        planName: planDef.name,
-        amount: planDef.price,
-        currency: planDef.currency,
-        paymentId,
-        orderId,
-        startDate: now,
-        endDate,
-        nextRenewalDate: endDate,
-        postLimit: Number.isFinite(planDef.limit) ? planDef.limit : null,
-      });
-    } catch (mailErr) {
-      console.log("[subscription] invoice email failed:", mailErr.message);
-    }
 
     res.status(200).json({
       success: true,
       message: `${planDef.name} plan activated. Invoice sent to your email.`,
-      plan: activePlan,
+      plan: payment.plan,
       planName: planDef.name,
       expiresAt: endDate,
       nextRenewalDate: endDate,
@@ -260,6 +295,82 @@ export const verifyPayment = async (req, res) => {
   }
 };
 
+// POST /api/subscription/webhook
+// Razorpay server-to-server events. Public (no session) but only accepted when
+// the raw body carries a valid HMAC signed with RAZORPAY_WEBHOOK_SECRET.
+export const razorpayWebhook = async (req, res) => {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return res.status(503).json({
+      success: false,
+      message: "Webhook secret not configured. Set RAZORPAY_WEBHOOK_SECRET in .env.",
+    });
+  }
+
+  const rawBody = Buffer.isBuffer(req.body)
+    ? req.body
+    : Buffer.from(JSON.stringify(req.body ?? ""));
+  const signature = req.headers["x-razorpay-signature"];
+
+  if (!verifyWebhookSignature({ rawBody, signature, webhookSecret })) {
+    return res.status(400).json({ success: false, message: "Invalid webhook signature." });
+  }
+
+  let event;
+  try {
+    event = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    return res.status(400).json({ success: false, message: "Unreadable webhook body." });
+  }
+
+  try {
+    const entity = event?.payload?.payment?.entity;
+    const orderId = entity?.order_id;
+
+    if (event.event === "payment.captured" && orderId) {
+      const payment = await Payment.findOne({ orderId });
+      // Unknown or already-activated orders are acked so Razorpay stops retrying.
+      if (payment && payment.status !== "success") {
+        const user = await User.findById(payment.user).select("email fullName");
+        if (user) {
+          await activatePlan({
+            user,
+            payment,
+            orderId,
+            paymentId: entity.id,
+          });
+          console.log(`[webhook] activated ${payment.plan} for user ${user._id}`);
+        }
+      }
+      return res.status(200).json({ success: true, received: true });
+    }
+
+    if (
+      (event.event === "payment.failed" || event.event === "payment.payment_failed") &&
+      orderId
+    ) {
+      await Payment.updateOne(
+        { orderId, status: "pending" },
+        {
+          $set: {
+            status: "failed",
+            paymentId: entity?.id ?? null,
+            failureReason:
+              entity?.error_description || "Declined at the payment gateway",
+          },
+        },
+      );
+      return res.status(200).json({ success: true, received: true });
+    }
+
+    return res.status(200).json({ success: true, ignored: event?.event });
+  } catch (error) {
+    console.log("[webhook] error:", error.message);
+    // 5xx makes Razorpay retry the event; activation is idempotent per payment.
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // POST /api/subscription/cancel
 export const cancelSubscription = async (req, res) => {
   try {
@@ -271,12 +382,14 @@ export const cancelSubscription = async (req, res) => {
     if (!subscription) {
       return res.status(400).json({
         success: false,
+        code: "no_active_subscription",
         message: "No active subscription to cancel.",
       });
     }
     if (subscription.cancelAtPeriodEnd) {
       return res.status(200).json({
         success: true,
+        code: "subscription_already_cancelled",
         message: "Your plan is already set to cancel at the end of the period.",
         cancelAtPeriodEnd: true,
         activeUntil: subscription.endDate,

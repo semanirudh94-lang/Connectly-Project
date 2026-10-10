@@ -11,6 +11,8 @@ export interface ScheduledPost {
   caption: string;
   location: string;
   media: { url: string; type: string; publicId?: string }[];
+  hashtags?: string[];
+  taggedUsers?: (string | { _id: string; username?: string })[];
   visibility: "public" | "followers";
   status: ScheduledStatus;
   scheduledFor: string | null;
@@ -24,6 +26,7 @@ export interface ScheduleCreateInput {
   media: { url: string; type: string; publicId?: string }[];
   caption?: string;
   location?: string;
+  hashtags?: string | string[];
   taggedUsers?: string[];
   visibility?: "public" | "followers";
   scheduledFor: string; // ISO date-time
@@ -67,9 +70,10 @@ export async function uploadPostMedia(
 ): Promise<{ url: string; type: string; publicId?: string }> {
   const form = new FormData();
   form.append("media", file);
-  const res = await axiosInstance.post("/api/upload", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  form.append("folder", "posts");
+  // Let the browser generate the multipart boundary — an explicit
+  // Content-Type header leaves multer without one.
+  const res = await axiosInstance.post("/api/upload", form);
   return res.data.media;
 }
 

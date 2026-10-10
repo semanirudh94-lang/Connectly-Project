@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Check } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 import { fetchArchive, ArchiveStory } from "@/lib/story.service";
 import { createHighlight } from "@/lib/highlight.service";
 import { toast } from "../ui/toast";
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [stories, setStories] = useState<ArchiveStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
@@ -48,7 +49,7 @@ const CreateHighlightModal = ({ onClose, onCreated }: Props) => {
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.response?.data?.message || t("highlight.createFailed"),
+        title: serverMessage(error, language, t, t("highlight.createFailed")),
       });
     } finally {
       setSaving(false);

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Globe, Users, Star, X, ImageIcon, Film, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 import {
   uploadStoryMedia,
   createStory,
@@ -44,7 +45,7 @@ interface Draft {
 }
 
 const CreateStoryModal = ({ onClose, onCreated }: Props) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [privacy, setPrivacy] = useState<StoryPrivacy>("public");
   const [uploading, setUploading] = useState(false);
@@ -91,7 +92,7 @@ const CreateStoryModal = ({ onClose, onCreated }: Props) => {
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.response?.data?.message || t("story.shareFailed"),
+        title: serverMessage(error, language, t, t("story.shareFailed")),
       });
     } finally {
       setUploading(false);

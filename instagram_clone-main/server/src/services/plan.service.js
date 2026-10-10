@@ -42,10 +42,16 @@ export async function checkPostLimit(user) {
     return { allowed: true, usage };
   }
 
-  const message =
-    usage.activePlan === "free"
-      ? `The Free plan allows only ${usage.limit} post. Upgrade to Bronze, Silver or Gold to post more.`
-      : `You've reached your ${usage.planName} plan limit of ${usage.limit} posts this period. Upgrade to post more.`;
+  const isFree = usage.activePlan === "free";
+  const message = isFree
+    ? `The Free plan allows only ${usage.limit} post. Upgrade to Bronze, Silver or Gold to post more.`
+    : `You've reached your ${usage.planName} plan limit of ${usage.limit} posts this period. Upgrade to post more.`;
 
-  return { allowed: false, status: 403, message, usage };
+  return {
+    allowed: false,
+    status: 403,
+    code: isFree ? "plan_free_limit" : "plan_limit_reached",
+    message,
+    usage,
+  };
 }

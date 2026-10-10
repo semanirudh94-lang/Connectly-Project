@@ -13,6 +13,7 @@ import {
   ScrollText,
   Clock,
   ShieldAlert,
+  AlertTriangle,
   ChevronLeft,
 } from "lucide-react";
 import Sidebar from "@/components/insta/Sidebar";
@@ -33,17 +34,21 @@ import {
   deletePost,
   listScheduledPosts,
   updateScheduledPost,
+  cancelScheduledPost,
   listStories,
   updateStory,
   deleteStory,
   listSubscriptions,
+  createSubscription,
   updateSubscription,
   deleteSubscription,
   listReports,
   updateReport,
   deleteReport,
   listComments,
+  updateComment,
   deleteComment,
+  listPublishErrors,
   listAuditLogs,
   type AdminStats,
 } from "@/lib/admin.service";
@@ -53,6 +58,7 @@ type TabId =
   | "users"
   | "posts"
   | "scheduled"
+  | "errors"
   | "stories"
   | "subscriptions"
   | "reports"
@@ -246,11 +252,37 @@ export default function AdminPage() {
           { name: "scheduledFor", label: t("admin.col.scheduledFor"), type: "datetime" },
         ],
       },
+      // Cancels a pending post so the scheduler can never publish it.
+      remove: { submit: cancelScheduledPost },
+    };
+
+    const publishErrors: ResourceConfig = {
+      title: t("admin.tabs.errors"),
+      list: listPublishErrors,
+      sortOptions: [
+        { value: "createdAt", label: t("admin.sort.newest") },
+        { value: "attempt", label: t("admin.sort.attempt") },
+      ],
+      filters: [
+        { name: "permanent", label: t("admin.col.permanent"), type: "boolean", options: [{ value: "true", label: t("admin.yes") }, { value: "false", label: t("admin.no") }] },
+        { name: "from", label: t("admin.from"), type: "date" },
+        { name: "to", label: t("admin.to"), type: "date" },
+      ],
+      columns: [
+        { key: "user", label: t("admin.col.user"), render: (r) => r.user?.username || "—" },
+        { key: "post", label: t("admin.col.post"), render: (r) => <span className="line-clamp-1 max-w-[180px] inline-block">{r.post?.caption || r.post?._id || "—"}</span> },
+        { key: "attempt", label: t("admin.col.attempt") },
+        { key: "error", label: t("admin.col.error"), render: (r) => <span className="line-clamp-2 max-w-[280px] inline-block text-[#ed4956]">{r.error}</span> },
+        { key: "permanent", label: t("admin.col.permanent"), render: (r) => yesNo(r.permanent) },
+        { key: "createdAt", label: t("admin.col.when"), render: (r) => dateFmt(r.createdAt) },
+      ],
     };
 
     const stories: ResourceConfig = {
       title: t("admin.tabs.stories"),
       list: listStories,
+      searchable: true,
+      searchPlaceholder: t("admin.searchStories"),
       sortOptions: [
         { value: "createdAt", label: t("admin.sort.newest") },
         { value: "viewsCount", label: t("admin.sort.views") },
@@ -315,6 +347,15 @@ export default function AdminPage() {
           { name: "cancelAtPeriodEnd", label: t("admin.col.cancelAtEnd"), type: "boolean" },
         ],
       },
+      create: {
+        title: t("admin.grantSubscription"),
+        submit: createSubscription,
+        fields: [
+          { name: "user", label: t("admin.col.userId"), type: "text" },
+          { name: "plan", label: t("admin.col.plan"), type: "select", options: opt(["bronze", "silver", "gold"], "admin.planVal") },
+          { name: "days", label: t("admin.days"), type: "text" },
+        ],
+      },
       remove: { submit: deleteSubscription },
     };
 
@@ -371,6 +412,14 @@ export default function AdminPage() {
         { key: "isDeleted", label: t("admin.col.deleted"), render: (r) => yesNo(r.isDeleted) },
         { key: "createdAt", label: t("admin.col.created"), render: (r) => dateFmt(r.createdAt) },
       ],
+      edit: {
+        title: t("admin.editComment"),
+        submit: updateComment,
+        fields: [
+          { name: "text", label: t("admin.col.text"), type: "text" },
+          { name: "isDeleted", label: t("admin.col.deleted"), type: "boolean" },
+        ],
+      },
       remove: { submit: deleteComment },
     };
 
@@ -397,6 +446,7 @@ export default function AdminPage() {
       users,
       posts,
       scheduled,
+      errors: publishErrors,
       stories,
       subscriptions,
       reports,
@@ -411,6 +461,7 @@ export default function AdminPage() {
     { id: "users", label: t("admin.tabs.users"), icon: Users },
     { id: "posts", label: t("admin.tabs.posts"), icon: ImageIcon },
     { id: "scheduled", label: t("admin.tabs.scheduled"), icon: Clock },
+    { id: "errors", label: t("admin.tabs.errors"), icon: AlertTriangle },
     { id: "stories", label: t("admin.tabs.stories"), icon: Film },
     { id: "subscriptions", label: t("admin.tabs.subscriptions"), icon: CreditCard },
     { id: "reports", label: t("admin.tabs.reports"), icon: Flag },

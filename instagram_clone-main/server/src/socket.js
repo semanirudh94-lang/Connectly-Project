@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 import Conversation from "./models/Conversation.model.js";
 import Message from "./models/message.model.js";
 
@@ -15,11 +16,20 @@ export const initSocket = (server) => {
   io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
 
-    socket.on("setup", (userId) => {
-      socket.join(userId.toString());
+    // The room a user joins must come from a verified token — a client-supplied
+    // userId would let anyone subscribe to someone else's private events.
+    socket.on("setup", (accessToken) => {
+      try {
+        const decoded = jwt.verify(String(accessToken || ""), process.env.JWT_SECRET);
+        socket.data.userId = String(decoded.id);
+        socket.join(socket.data.userId);
+      } catch {
+        socket.emit("unauthorized");
+      }
     });
 
     socket.on("join-conversation", (conversationId) => {
+      if (!socket.data.userId) return;
       socket.join(conversationId);
     });
 
@@ -30,11 +40,19 @@ export const initSocket = (server) => {
     // SEND MESSAGE
     socket.on("send-message", async (data) => {
       try {
-        const { conversationId, senderId, text, media } = data;
+        const { conversationId, text, media } = data;
+
+        if (!socket.data.userId) return;
+
+        const member = await Conversation.findOne({
+          _id: conversationId,
+          participants: socket.data.userId,
+        }).select("_id");
+        if (!member) return;
 
         const message = await Message.create({
           conversation: conversationId,
-          sender: senderId,
+          sender: socket.data.userId,
           text,
           media,
         });

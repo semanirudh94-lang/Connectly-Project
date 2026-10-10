@@ -8,6 +8,7 @@ import ScheduledPostsSection from "@/components/insta/ScheduledPostsSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { LANGUAGES, useLanguage, type Language } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 import {
   fetchLanguage,
   requestLanguageOtp,
@@ -65,9 +66,9 @@ export default function SettingsPage() {
       toast.add({ type: "success", title: t("settings.codeSent") });
       setTimeout(() => inputsRef.current[0]?.focus(), 50);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Something went wrong";
+      const msg = serverMessage(err, language, t, t("errors.fallback"));
       setError(msg);
-      if (err?.response?.status === 400 && /mobile number/i.test(msg)) {
+      if (err?.response?.data?.code === "no_phone_on_account") {
         toast.add({ type: "error", title: t("settings.addPhoneFirst") });
       } else {
         toast.add({ type: "error", title: msg });
@@ -87,7 +88,7 @@ export default function SettingsPage() {
       toast.add({ type: "success", title: t("settings.codeSent") });
       inputsRef.current[0]?.focus();
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Could not resend");
+      setError(serverMessage(err, language, t, t("settings.resendFailed")));
     } finally {
       setBusy(false);
     }
@@ -139,7 +140,7 @@ export default function SettingsPage() {
       setDigits(Array(OTP_LEN).fill(""));
     } catch (err: any) {
       const status = err?.response?.status;
-      const msg = err?.response?.data?.message || "Verification failed";
+      const msg = serverMessage(err, language, t, t("settings.verifyFailed"));
       setError(msg);
       if (status === 429) {
         toast.add({ type: "error", title: t("settings.locked") });

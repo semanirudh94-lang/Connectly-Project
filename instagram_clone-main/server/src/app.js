@@ -12,11 +12,16 @@ import storyRoutes from "./routes/story.routes.js";
 import highlightRoutes from "./routes/highlight.routes.js";
 import closeFriendsRoutes from "./routes/closeFriends.routes.js";
 import languageRoutes from "./routes/language.routes.js";
+import reportRoutes from "./routes/report.routes.js";
 import subscriptionRoutes from "./routes/subscription.routes.js";
 import commentRoutes from "./routes/comment.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 dotenv.config();
 const app = express();
+
+// Behind a proxy (Render/Vercel/NGINX) req.ip would otherwise be the proxy's
+// address, which would make every Login History entry look identical.
+app.set("trust proxy", true);
 
 app.use(
   cors({
@@ -27,6 +32,13 @@ app.use(
     ],
     credentials: true,
   })
+);
+
+// The Razorpay webhook must verify the HMAC over the RAW bytes, so this path is
+// parsed as a Buffer before the JSON body parser can consume it.
+app.use(
+  "/api/subscription/webhook",
+  express.raw({ type: () => true }),
 );
 
 app.use(express.json());
@@ -45,6 +57,7 @@ app.use("/api/close-friends", closeFriendsRoutes);
 app.use("/api/language", languageRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/comments", commentRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
 app.get("/", (req, res) => {
   res.status(200).json({

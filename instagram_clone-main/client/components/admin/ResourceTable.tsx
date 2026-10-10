@@ -5,6 +5,7 @@ import { Search, ChevronLeft, ChevronRight, Pencil, Trash2, Plus, X } from "luci
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 import type { Paginated, ListParams } from "@/lib/admin.service";
 
 export type FieldType = "text" | "select" | "boolean" | "date" | "datetime";
@@ -61,7 +62,7 @@ function toLocalInput(v: any): string {
 }
 
 export default function ResourceTable({ config }: { config: ResourceConfig }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [data, setData] = useState<Paginated<any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -103,7 +104,7 @@ export default function ResourceTable({ config }: { config: ResourceConfig }) {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("admin.loadFailed"),
+        title: serverMessage(err, language, t, t("admin.loadFailed")),
       });
     } finally {
       setLoading(false);
@@ -318,7 +319,7 @@ export default function ResourceTable({ config }: { config: ResourceConfig }) {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("admin.actionFailed"),
+        title: serverMessage(err, language, t, t("admin.actionFailed")),
       });
     }
   }
@@ -373,7 +374,7 @@ function FormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const spec = mode === "edit" ? config.edit! : config.create!;
   const [form, setForm] = useState<Record<string, any>>(() => {
     const init: Record<string, any> = {};
@@ -418,7 +419,7 @@ function FormModal({
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("admin.actionFailed"),
+        title: serverMessage(err, language, t, t("admin.actionFailed")),
       });
     } finally {
       setBusy(false);

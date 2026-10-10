@@ -432,7 +432,7 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
                         <div className="flex items-center gap-1.5 text-white font-semibold">
                           <Heart size={20} className="fill-white text-white" />
                           <span className="text-sm">
-                            formatLikeCount(post.likesCount)
+                            {formatLikeCount(post.likesCount)}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 text-white font-semibold">
@@ -503,13 +503,12 @@ const ProfileView = ({ user, isOwnProfile }: any) => {
       {openLoginHistory && (
         <LoginHistoryModal onClose={() => setOpenLoginHistory(false)} />
       )}
-      {/* {selectedPost && (
+      {selectedPost && (
         <PostModal
           post={selectedPost}
-          posts={posts}
           onClose={() => setSelectedPost(null)}
         />
-      )} */}
+      )}
     </div>
   );
 };

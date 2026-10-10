@@ -3,37 +3,69 @@
 import axiosInstance from "@/lib/axios";
 import { currentUser, formatLikeCount, formatTimeAgo } from "@/lib/mock-data";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
+import {
+  addComment,
+  fetchComments,
+  removeComment,
+  type PostComment,
+} from "@/lib/comment.service";
+import { reportTarget } from "@/lib/report.service";
 import useAuthStore from "@/store/authStore";
 import {
   Bookmark,
+  Flag,
   Heart,
   MessageCircle,
   MoreHorizontal,
   Send,
   Smile,
+  Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "../ui/toast";
+
+// The feed populates a full `likes` array; the profile grid only sends
+// `likesCount`, so read whichever the payload provides.
+const isLikedByMe = (post: any, userId?: string) =>
+  (post.likes ?? []).some((like: any) => like.user?._id === userId);
+
+const totalLikes = (post: any) =>
+  (post.likes ?? []).length || post.likesCount || 0;
 
 const Postcard = ({ post }: any) => {
   const user = useAuthStore((state) => state.user);
-  const { t } = useLanguage();
-  const [liked, setLiked] = useState(
-    post.likes.some((like: any) => like.user?._id === user?._id),
-  );
-  const [likeCount, setLikeCount] = useState(post.likes.length);
+  const { t, language } = useLanguage();
+  const [liked, setLiked] = useState(isLikedByMe(post, user?._id));
+  const [likeCount, setLikeCount] = useState(totalLikes(post));
   const [saved, setSaved] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showAllComments, setShowAllComments] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
-  const [localComments, setLocalComments] = useState(post.comments);
+  const [comments, setComments] = useState<PostComment[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
   const lastTapRef = useRef(0);
 
   useEffect(() => {
     setLiked(post.likes.some((like: any) => like.user?._id === user?._id));
     setLikeCount(post.likes.length);
   }, [user, post]);
+
+  useEffect(() => {
+    let active = true;
+    fetchComments(post._id)
+      .then((list) => active && setComments(list))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [post._id]);
   const handleLike = async () => {
     try {
       if (liked) {
@@ -70,19 +102,71 @@ const Postcard = ({ post }: any) => {
     lastTapRef.current = now;
   };
 
-  const handleComment = (e: React.FormEvent) => {
+  const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
-    setLocalComments((prev: any) => [
-      ...prev,
-      {
-        _id: `c_${Date.now()}`,
-        user: user,
-        text: commentText.trim(),
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    setCommentText("");
+    const text = commentText.trim();
+    if (!text) return;
+    try {
+      const created = await addComment(post._id, text);
+      setComments((prev) => [created, ...prev]);
+      setCommentText("");
+    } catch (error: any) {
+      toast.add({
+        type: "error",
+        description: serverMessage(
+          error,
+          language,
+          t,
+          t("post.commentFailed"),
+        ),
+        priority: "high",
+      });
+    }
+  };
+
+  const canDeleteComment = (comment: PostComment) =>
+    comment.user?._id === user?._id || post.user?._id === user?._id;
+
+  const handleDeleteComment = async (comment: PostComment) => {
+    try {
+      await removeComment(comment._id);
+      setComments((prev) => prev.filter((c) => c._id !== comment._id));
+    } catch (error: any) {
+      toast.add({
+        type: "error",
+        description: serverMessage(
+          error,
+          language,
+          t,
+          t("post.commentDeleteFailed"),
+        ),
+        priority: "high",
+      });
+    }
+  };
+
+  const handleReport = async () => {
+    setSubmittingReport(true);
+    try {
+      await reportTarget("post", post._id, reportText.trim());
+      toast.add({ type: "success", title: t("post.reportSubmitted") });
+      setMenuOpen(false);
+      setReporting(false);
+      setReportText("");
+    } catch (error: any) {
+      toast.add({
+        type: "error",
+        description: serverMessage(
+          error,
+          language,
+          t,
+          t("post.reportFailed"),
+        ),
+        priority: "high",
+      });
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   const captionText = post.caption;
@@ -92,9 +176,8 @@ const Postcard = ({ post }: any) => {
       ? captionText.slice(0, 125) + "…"
       : captionText;
 
-  const visibleComments = showAllComments
-    ? localComments
-    : localComments?.slice(0, 2);
+  const commentCount = post.commentsCount ?? comments.length;
+  const visibleComments = showAllComments ? comments : comments.slice(0, 2);
   return (
     <article className="bg-ig-surface border-b border-ig-border md:border md:rounded-sm md:mb-6">
       {/* Header */}
@@ -135,9 +218,77 @@ const Postcard = ({ post }: any) => {
             )}
           </div>
         </Link>
-        <button className="text-ig-text hover:text-ig-muted transition-colors">
-          <MoreHorizontal size={20} />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={t("post.options")}
+            className="text-ig-text hover:text-ig-muted transition-colors"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+
+          {menuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-[160]"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="absolute right-0 top-7 z-[161] w-56 rounded-lg border border-ig-border bg-ig-surface shadow-lg">
+                {reporting ? (
+                  <div className="p-3 flex flex-col gap-2">
+                    <p className="text-xs text-ig-muted">{t("post.reportDesc")}</p>
+                    <textarea
+                      value={reportText}
+                      onChange={(e) => setReportText(e.target.value)}
+                      rows={3}
+                      maxLength={1000}
+                      placeholder={t("post.reportPlaceholder")}
+                      className="text-sm text-ig-text placeholder:text-ig-muted border border-ig-border rounded px-2 py-1.5 outline-none resize-none focus:border-ig-muted"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setReporting(false)}
+                        className="text-xs text-ig-muted hover:text-ig-text"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                      <button
+                        onClick={handleReport}
+                        disabled={submittingReport}
+                        className="text-xs font-semibold text-[#0095f6] hover:text-[#1877f2] disabled:opacity-50"
+                      >
+                        {t("common.submit")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {user?._id === post.user?._id ? (
+                      <p className="px-3 py-2.5 text-xs text-ig-muted">
+                        {t("post.reportOwnPost")}
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => setReporting(true)}
+                        className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-ig-text hover:bg-ig-hover"
+                      >
+                        <Flag size={15} />
+                        {t("post.report")}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-ig-text hover:bg-ig-hover border-t border-ig-border"
+                    >
+                      <X size={15} />
+                      {t("common.close")}
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
       {/* Image */}
       <div
@@ -226,16 +377,19 @@ const Postcard = ({ post }: any) => {
         </p>
 
         {/* Comments */}
-        {localComments?.length > 2 && !showAllComments && (
+        {commentCount > 2 && !showAllComments && (
           <button
             onClick={() => setShowAllComments(true)}
             className="text-sm text-ig-muted mb-1 block"
           >
-            {t("post.viewAllComments", { n: localComments.length })}
+            {t("post.viewAllComments", { n: commentCount })}
           </button>
         )}
-        {visibleComments?.map((comment: any) => (
-          <div key={comment._id} className="flex items-start gap-1 mb-1">
+        {visibleComments.map((comment) => (
+          <div
+            key={comment._id}
+            className="flex items-start gap-1 mb-1 group/comment"
+          >
             <p className="text-sm text-ig-text leading-snug">
               <Link
                 href={`/profile/${comment.user.username}`}
@@ -245,8 +399,25 @@ const Postcard = ({ post }: any) => {
               </Link>
               {comment.text}
             </p>
+            {canDeleteComment(comment) && (
+              <button
+                onClick={() => handleDeleteComment(comment)}
+                aria-label={t("post.deleteComment")}
+                className="opacity-0 group-hover/comment:opacity-100 transition-opacity p-0.5 text-ig-muted hover:text-[#ed4956]"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
           </div>
         ))}
+        {showAllComments && comments.length > 2 && (
+          <button
+            onClick={() => setShowAllComments(false)}
+            className="text-sm text-ig-muted mb-1 block"
+          >
+            {t("post.viewFewerComments")}
+          </button>
+        )}
 
         {/* Timestamp */}
         <p className="text-[10px] uppercase tracking-wide text-ig-muted mt-1 mb-3">

@@ -3,9 +3,12 @@
 import { currentUser } from "@/lib/mock-data";
 import { ChevronDown, ChevronLeft, ImageIcon, MapPin, X } from "lucide-react";
 import { useRef, useState } from "react";
-import { uploadImage } from "@/lib/imgbb.service";
+import { uploadPostMedia } from "@/lib/post.service";
 import axiosInstance from "@/lib/axios";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
+import TagUsersInput from "@/components/insta/TagUsersInput";
+import type { TaggableUser } from "@/lib/auth.service";
 import { toast } from "../ui/toast";
 type Stage = "select" | "crop" | "share";
 type AspectRatio = "original" | "1:1" | "4:5" | "16:9";
@@ -33,12 +36,13 @@ interface CreatePostModalProps {
 }
 
 const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [stage, setStage] = useState<Stage>("select");
   const [image, setImage] = useState<string | null>(null);
   const [ratio, setRatio] = useState<AspectRatio>("1:1");
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
+  const [tagged, setTagged] = useState<TaggableUser[]>([]);
   const [dragging, setDragging] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
@@ -111,10 +115,11 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
     if (!selectedFile) return;
     setSharing(true);
     try {
-      const uploadedImage = await uploadImage(selectedFile);
+      const uploadedImage = await uploadPostMedia(selectedFile);
       const res = await axiosInstance.post("/api/posts", {
         caption,
         location,
+        taggedUsers: tagged.map((u) => u._id),
         media: [uploadedImage],
       });
       if (res.data.success) {
@@ -126,6 +131,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
       setTimeout(() => {
         setCaption("");
         setLocation("");
+        setTagged([]);
         setSelectedFile(null);
         setImage(null);
         setStage("select");
@@ -136,7 +142,7 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
     } catch (error: any) {
       toast.add({
         type: "error",
-        title: error?.response?.data?.message || error.message,
+        title: serverMessage(error, language, t, t("create.postShared")),
       });
     }
   };
@@ -353,6 +359,17 @@ const Createpostmodel = ({ onClose }: CreatePostModalProps) => {
                     className="text-sm text-ig-text placeholder:text-ig-muted outline-none flex-1 bg-transparent"
                   />
                   <MapPin size={18} className="text-ig-muted shrink-0" />
+                </div>
+
+                {/* Tag people + hashtags */}
+                <div className="px-4 py-3 flex flex-col gap-3 border-b border-ig-border">
+                  <div>
+                    <p className="text-xs font-semibold text-ig-muted mb-1.5">
+                      {t("post.tagPeople")}
+                    </p>
+                    <TagUsersInput selected={tagged} onChange={setTagged} />
+                  </div>
+                  <p className="text-xs text-ig-muted">{t("post.hashtagHint")}</p>
                 </div>
 
                 {/* Accessibility */}

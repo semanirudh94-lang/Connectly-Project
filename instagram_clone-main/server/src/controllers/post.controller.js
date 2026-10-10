@@ -1,13 +1,37 @@
 import User from "../models/User.model.js";
 import Post from "../models/Post.model.js";
 import Like from "../models/Like.model.js";
+import { resolveHashtags } from "../utils/hashtags.js";
+import { sanitizeTaggedUsers } from "../utils/taggedUsers.js";
+
+// Attaches each post's likers with a single query for the whole page, rather
+// than one per post.
+async function attachLikes(posts) {
+  const likes = await Like.find({ post: { $in: posts.map((p) => p._id) } })
+    .populate("user", "username fullName profilePicture")
+    .lean();
+
+  const byPost = new Map();
+  for (const like of likes) {
+    const key = String(like.post);
+    if (!byPost.has(key)) byPost.set(key, []);
+    byPost.get(key).push(like);
+  }
+
+  return posts.map((post) => ({
+    ...post,
+    likes: byPost.get(String(post._id)) || [],
+  }));
+}
+
 export const createPost = async (req, res) => {
   try {
     const { caption, location, media, taggedUsers, visibility } = req.body;
     if (!media || media.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Please upload at lease one image",
+        code: "media_required",
+        message: "Please upload at least one image",
       });
     }
 
@@ -16,7 +40,8 @@ export const createPost = async (req, res) => {
       caption,
       location,
       media,
-      taggedUsers,
+      taggedUsers: await sanitizeTaggedUsers(taggedUsers),
+      hashtags: resolveHashtags(req.body),
       visibility,
     });
     await User.findByIdAndUpdate(req.user._id, {
@@ -40,21 +65,10 @@ export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find({ isDeleted: false, status: "published" })
       .populate("user", "username fullName profilePicture")
+      .populate("taggedUsers", "username fullName profilePicture")
       .lean();
 
-    const postsWithLikes = await Promise.all(
-      posts.map(async (post) => {
-        const likes = await Like.find({ post: post._id }).populate(
-          "user",
-          "username fullName profilePicture",
-        );
-
-        return {
-          ...post,
-          likes,
-        };
-      }),
-    );
+    const postsWithLikes = await attachLikes(posts);
 
     res.status(200).json({
       success: true,
@@ -81,9 +95,11 @@ export const getUserPosts = async (req, res) => {
       user: user?._id,
       isDeleted: false,
       status: "published",
-    }).sort({
-      createdAt: -1,
-    });
+    })
+      .populate("taggedUsers", "username fullName profilePicture")
+      .sort({
+        createdAt: -1,
+      });
     res.status(200).json({
       success: true,
       posts,

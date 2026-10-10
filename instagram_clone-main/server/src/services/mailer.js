@@ -142,7 +142,106 @@ export async function sendInvoiceEmail({
   }
 }
 
-// Notifies a user that their scheduled post has gone live (Task 6).
+// Shared transport + stub handling for the plan-lifecycle notices below.
+async function dispatch({ to, subject, text, html, stubNote }) {
+  const transporter = getTransporter();
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER || "no-reply@instai.local",
+      to,
+      subject,
+      text,
+      html,
+    });
+    if (info?.stub) {
+      console.log(
+        `\n[EMAIL STUB] ${stubNote} => ${to} (set EMAIL_USER/EMAIL_PASS in .env to send real mail)\n`,
+      );
+      return { delivered: false, mode: "console" };
+    }
+    return { delivered: true, mode: "smtp" };
+  } catch (error) {
+    console.log("[mailer] send failed:", error.message);
+    throw error;
+  }
+}
+
+const simpleTable = (rows) =>
+  `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#888">${k}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#111;font-weight:600;text-align:right">${v}</td></tr>`,
+    )
+    .join("")}</table>`;
+
+// Reminds a user that their paid plan renews shortly (Task 3 renewal).
+export async function sendRenewalReminderEmail({
+  to,
+  fullName = "there",
+  planName,
+  amount,
+  currency = "INR",
+  renewalDate,
+}) {
+  const fmtDate = new Date(renewalDate).toLocaleDateString("en-IN", {
+    dateStyle: "medium",
+  });
+  const subject = `Your ${planName} plan renews on ${fmtDate} — InstAI`;
+  const text = `Hi ${fullName},\n\nYour ${planName} plan (₹${amount}) renews on ${fmtDate}. Payments are accepted between 5:00 AM and 11:00 AM IST.\n\n— InstAI`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #eee;border-radius:12px">
+    <h2 style="margin:0 0 4px">InstAI</h2>
+    <p style="color:#555;margin:0 0 20px">Renewal reminder</p>
+    <p style="margin:0 0 16px">Hi ${fullName}, your subscription renews soon.</p>
+    ${simpleTable([
+      ["Plan", planName],
+      ["Renewal amount", `${currency} ${amount}`],
+      ["Renews on", fmtDate],
+    ])}
+    <p style="color:#999;font-size:12px;margin-top:20px">Payments are accepted only between 5:00 AM and 11:00 AM IST.</p>
+  </div>`;
+
+  return dispatch({
+    to,
+    subject,
+    text,
+    html,
+    stubNote: `Renewal reminder for ${planName} on ${fmtDate}`,
+  });
+}
+
+// Tells a user their paid period ended and the account dropped to Free.
+export async function sendPlanExpiredEmail({
+  to,
+  fullName = "there",
+  planName,
+  endDate,
+}) {
+  const fmtDate = new Date(endDate).toLocaleDateString("en-IN", {
+    dateStyle: "medium",
+  });
+  const subject = `Your ${planName} plan has expired — InstAI`;
+  const text = `Hi ${fullName},\n\nYour ${planName} plan ended on ${fmtDate} and your account is now on the Free plan. Upgrade again to keep posting.\n\n— InstAI`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #eee;border-radius:12px">
+    <h2 style="margin:0 0 4px">InstAI</h2>
+    <p style="color:#555;margin:0 0 20px">Subscription ended</p>
+    <p style="margin:0 0 16px">Hi ${fullName}, your plan has expired.</p>
+    ${simpleTable([
+      ["Previous plan", planName],
+      ["Ended on", fmtDate],
+      ["Current plan", "Free"],
+    ])}
+    <p style="color:#999;font-size:12px;margin-top:20px">Upgrade from Settings → Subscription to raise your posting limit.</p>
+  </div>`;
+
+  return dispatch({
+    to,
+    subject,
+    text,
+    html,
+    stubNote: `Plan-expired notice (${planName} ended ${fmtDate})`,
+  });
+}
+
 export async function sendPostPublishedEmail({
   to,
   fullName = "there",

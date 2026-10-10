@@ -51,3 +51,18 @@ export async function fetchLoginHistory(): Promise<LoginHistoryEntry[]> {
   const res = await axiosInstance.get("/api/auth/login-history");
   return res.data.history ?? [];
 }
+
+export interface TaggableUser {
+  _id: string;
+  username: string;
+  fullName?: string;
+  profilePicture?: string;
+}
+
+// Username/fullName lookup used by the post tag picker.
+export async function searchUsers(q: string): Promise<TaggableUser[]> {
+  const res = await axiosInstance.get("/api/auth/search/users", {
+    params: { q },
+  });
+  return res.data.users ?? [];
+}

@@ -5,6 +5,7 @@ import { Check, Crown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/lib/razorpay";
 import {
   cancelSubscription,
@@ -25,7 +26,7 @@ const PLAN_ICON: Record<string, string> = {
 };
 
 export default function SubscriptionSection() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const user = useAuthStore((s) => s.user);
 
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -107,12 +108,18 @@ export default function SubscriptionSection() {
       }
 
       const verified = await verifySubscriptionPayment(payload as any);
-      toast.add({ type: "success", title: verified.message });
+      toast.add({
+        type: "success",
+        title: t("subscription.paymentSuccess", {
+          plan: verified.planName ?? "",
+        }),
+      });
       await load();
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || t("subscription.somethingWrong");
-      toast.add({ type: "error", title: msg });
+      toast.add({
+        type: "error",
+        title: serverMessage(err, language, t, t("subscription.somethingWrong")),
+      });
     } finally {
       setBusyPlan(null);
     }
@@ -122,12 +129,22 @@ export default function SubscriptionSection() {
     setCancelling(true);
     try {
       const res = await cancelSubscription();
-      toast.add({ type: "success", title: res.message });
+      toast.add({
+        type: "success",
+        title: t("subscription.cancelSuccess", {
+          until: res.activeUntil ? fmtDate(res.activeUntil) : "",
+        }),
+      });
       await load();
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("subscription.somethingWrong"),
+        title: serverMessage(
+          err,
+          language,
+          t,
+          t("subscription.somethingWrong"),
+        ),
       });
     } finally {
       setCancelling(false);

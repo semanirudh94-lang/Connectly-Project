@@ -8,6 +8,7 @@ export const enforcePostLimit = async (req, res, next) => {
     if (!result.allowed) {
       return res.status(result.status).json({
         success: false,
+        code: result.code,
         message: result.message,
         plan: result.usage.activePlan,
         limit: result.usage.limit,

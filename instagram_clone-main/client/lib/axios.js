@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getDeviceHint } from "./deviceHint";
 
 const axiosInstance = axios.create({
   baseURL: process.env.BACKEND_URL,
@@ -11,6 +12,7 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers["x-device-hint"] = getDeviceHint();
     return config;
   },
   (error) => Promise.reject(error),

@@ -13,6 +13,7 @@ import {
   parseDeviceInfo,
   getClientIp,
   isChromeBrowser,
+  isEdgeBrowser,
   isMobileDevice,
 } from "../utils/deviceInfo.js";
 import {
@@ -61,6 +62,25 @@ async function logAttempt(user, info, ip, status, failureReason = "") {
   }
 }
 
+// Records a failed attempt that could not be tied to an existing account.
+async function logUnknownAttempt(email, info, ip, failureReason = "") {
+  try {
+    return await LoginHistory.create({
+      emailAttempted: email || "",
+      browser: info.browser,
+      os: info.os,
+      deviceType: info.deviceType,
+      ip,
+      status: "failed",
+      failureReason,
+      loginAt: new Date(),
+    });
+  } catch (err) {
+    console.log("[loginHistory] unknown-attempt log failed:", err.message);
+    return null;
+  }
+}
+
 // Issue tokens, persist the refresh token, record a successful login.
 async function completeLogin(res, user, info, ip) {
   const accessToken = generateAccessToken(user._id);
@@ -70,9 +90,11 @@ async function completeLogin(res, user, info, ip) {
   await logAttempt(user, info, ip, "success");
   return res.status(200).json({
     success: true,
+    code: "login_success",
     message: "Login successful",
     user: sanitizeUser(user),
     accessToken,
+    refreshToken,
   });
 }
 
@@ -83,6 +105,7 @@ export const register = async (req, res) => {
     if (!username || !fullName || !email || !password) {
       return res.status(400).json({
         success: false,
+        code: "missing_fields",
         message: "ALL fields are required",
       });
     }
@@ -92,6 +115,7 @@ export const register = async (req, res) => {
     if (exisitngUser) {
       return res.status(400).json({
         success: false,
+        code: "user_exists",
         message: "User already exisits",
       });
     }
@@ -110,6 +134,7 @@ export const register = async (req, res) => {
     await user.save();
     res.status(201).json({
       success: true,
+      code: "registered",
       message: "User Created Successfully",
       accessToken,
       user: sanitizeUser(user),
@@ -127,9 +152,13 @@ export const register = async (req, res) => {
 // Rules applied after credentials pass:
 //   1. Mobile device  → only allowed inside the server-time login window.
 //   2. Chrome browser → email OTP required (2-step); no token yet.
-//   3. Edge / others  → direct login.
+//   3. Microsoft browser (Edge/IE) → direct login, no verification.
+//   4. Any other browser → direct login.
 export const login = async (req, res) => {
-  const info = parseDeviceInfo(req.headers["user-agent"] || "");
+  const info = parseDeviceInfo(
+    req.headers["user-agent"] || "",
+    req.headers["x-device-hint"],
+  );
   const ip = getClientIp(req);
 
   try {
@@ -137,15 +166,19 @@ export const login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
+        code: "missing_fields",
         message: "ALL fields are required",
       });
     }
 
     const user = await User.findOne({ email }).select("+password +refreshToken");
     if (!user) {
-      // No user to attribute an audit record to; do not leak which field failed.
+      // No user to attribute an audit record to, but still record the failed
+      // attempt (with the tried email) for auditing. Do not leak which field failed.
+      await logUnknownAttempt(email, info, ip, "No such account");
       return res.status(400).json({
         success: false,
+        code: "invalid_credentials",
         message: "Invalid email or password.",
       });
     }
@@ -155,6 +188,7 @@ export const login = async (req, res) => {
       await logAttempt(user, info, ip, "failed", "Invalid password");
       return res.status(400).json({
         success: false,
+        code: "invalid_password",
         message: "Invalid password.",
       });
     }
@@ -170,6 +204,7 @@ export const login = async (req, res) => {
       );
       return res.status(403).json({
         success: false,
+        code: "login_window_closed",
         message: LOGIN_WINDOW_CLOSED_MESSAGE,
         deniedWindow: true,
       });
@@ -182,6 +217,10 @@ export const login = async (req, res) => {
 
       // Retire any stale pending challenge for this user.
       await LoginSession.deleteMany({ user: user._id });
+      await LoginHistory.updateMany(
+        { user: user._id, status: "pending" },
+        { $set: { status: "expired", failureReason: "Superseded by a new login" } },
+      );
 
       const history = await logAttempt(user, info, ip, "pending");
       await LoginSession.create({
@@ -202,6 +241,7 @@ export const login = async (req, res) => {
       return res.status(200).json({
         success: true,
         requiresOtp: true,
+        code: "otp_required",
         challengeToken,
         target: maskEmail(user.email),
         expiresIn: otpMinutes * 60,
@@ -210,7 +250,12 @@ export const login = async (req, res) => {
       });
     }
 
-    // Rule 3 — Edge and every other browser log in directly.
+    // Rule 3 — Microsoft browsers (Edge / IE) log in with no extra verification.
+    if (isEdgeBrowser(info.browser)) {
+      return await completeLogin(res, user, info, ip);
+    }
+
+    // Rule 4 — every other browser also logs in directly.
     return await completeLogin(res, user, info, ip);
   } catch (error) {
     console.log(error);
@@ -228,6 +273,7 @@ export const verifyLoginOtp = async (req, res) => {
     if (!challengeToken || !otp) {
       return res.status(400).json({
         success: false,
+        code: "otp_missing_fields",
         message: "Missing challenge token or code.",
       });
     }
@@ -238,6 +284,7 @@ export const verifyLoginOtp = async (req, res) => {
     if (!session || session.verified) {
       return res.status(400).json({
         success: false,
+        code: "login_session_expired",
         message: "Session expired. Please log in again.",
       });
     }
@@ -245,15 +292,23 @@ export const verifyLoginOtp = async (req, res) => {
       const wait = Math.ceil((session.lockedUntil - new Date()) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_locked",
         message: `Too many failed attempts. Locked for ${wait}s.`,
         retryAfter: wait,
         locked: true,
       });
     }
     if (session.expiresAt < new Date()) {
+      if (session.historyId) {
+        await LoginHistory.findByIdAndUpdate(session.historyId, {
+          status: "expired",
+          failureReason: "OTP challenge expired",
+        });
+      }
       await session.deleteOne();
       return res.status(400).json({
         success: false,
+        code: "otp_expired",
         message: "Code expired. Please log in again.",
       });
     }
@@ -272,6 +327,7 @@ export const verifyLoginOtp = async (req, res) => {
         await session.save();
         return res.status(429).json({
           success: false,
+          code: "otp_max_attempts",
           message: "Too many wrong attempts. Locked for 15 minutes.",
           locked: true,
         });
@@ -279,6 +335,7 @@ export const verifyLoginOtp = async (req, res) => {
       await session.save();
       return res.status(400).json({
         success: false,
+        code: "otp_wrong_code",
         message: `Wrong code. ${session.maxAttempts - session.attempts} attempt(s) left.`,
         attemptsLeft: session.maxAttempts - session.attempts,
       });
@@ -290,7 +347,7 @@ export const verifyLoginOtp = async (req, res) => {
 
     const user = await User.findById(session.user).select("+refreshToken");
     if (!user) {
-      return res.status(400).json({ success: false, message: "User not found." });
+      return res.status(400).json({ success: false, code: "user_not_found", message: "User not found." });
     }
 
     if (session.historyId) {
@@ -308,6 +365,7 @@ export const verifyLoginOtp = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      code: "login_success",
       message: "Login successful",
       user: sanitizeUser(user),
       accessToken,
@@ -328,6 +386,7 @@ export const resendLoginOtp = async (req, res) => {
     if (!session || session.verified) {
       return res.status(400).json({
         success: false,
+        code: "login_session_expired",
         message: "Session expired. Please log in again.",
       });
     }
@@ -335,6 +394,7 @@ export const resendLoginOtp = async (req, res) => {
       const wait = Math.ceil((session.lockedUntil - new Date()) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_locked",
         message: `Locked. Try again in ${wait}s.`,
         retryAfter: wait,
         locked: true,
@@ -345,6 +405,7 @@ export const resendLoginOtp = async (req, res) => {
       const wait = Math.ceil((RESEND_COOLDOWN_MS - since) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_cooldown",
         message: `Please wait ${wait}s before resending.`,
         retryAfter: wait,
       });
@@ -367,6 +428,7 @@ export const resendLoginOtp = async (req, res) => {
       target: session.target,
       expiresIn: otpMinutes * 60,
       resendAfter: resendSeconds,
+      code: "code_resent",
       message: "Code resent to your email.",
     });
   } catch (error) {
@@ -404,6 +466,30 @@ export const me = async (req, res) => {
   }
 };
 
+// GET /api/auth/search/users?q=  — username/fullName lookup for the post tag
+// picker. Never returns the caller and caps the result set.
+export const searchUsers = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (q.length < 2) {
+      return res.status(200).json({ success: true, users: [] });
+    }
+    const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const users = await User.find({
+      _id: { $ne: req.user._id },
+      $or: [{ username: rx }, { fullName: rx }],
+    })
+      .select("username fullName profilePicture")
+      .limit(10)
+      .lean();
+
+    return res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getProfileByUsername = async (req, res) => {
   try {
     const { username } = req.params;
@@ -420,7 +506,9 @@ export const getProfileByUsername = async (req, res) => {
     const posts = await Post.find({
       user: user._id,
       isDeleted: false,
+      status: "published",
     })
+      .populate("user", "username fullName profilePicture")
       .sort({ createdAt: -1 })
       .lean();
 

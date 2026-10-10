@@ -1,5 +1,12 @@
 import cloudinary from "../config/cloudinary.js";
 
+// Cloudinary folders per feature. Whitelisted so a client-supplied `folder`
+// field can never write outside these paths.
+const FOLDERS = {
+  posts: "instai/posts",
+  stories: "instai/stories",
+};
+
 // Server-side media upload -> Cloudinary (supports image + video).
 // Keeps Cloudinary credentials on the server; client just POSTs multipart/form-data.
 export const uploadMedia = async (req, res) => {
@@ -13,12 +20,13 @@ export const uploadMedia = async (req, res) => {
 
     const isVideo = (req.file.mimetype || "").startsWith("video");
     const resourceType = isVideo ? "video" : "image";
+    const folder = FOLDERS[req.body?.folder] || FOLDERS.stories;
 
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           resource_type: resourceType,
-          folder: "instai/stories",
+          folder,
           // For images Cloudinary can infer; for video we keep original.
         },
         (error, uploaded) => {

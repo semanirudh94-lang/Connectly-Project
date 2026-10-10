@@ -7,6 +7,8 @@ import Report from "../models/Report.model.js";
 import Comment from "../models/Comment.model.js";
 import Like from "../models/Like.model.js";
 import AuditLog from "../models/AuditLog.model.js";
+import PublishErrorLog from "../models/PublishErrorLog.model.js";
+import { getPlan, isValidPlan, planEndDate } from "../config/plans.js";
 import { writeAudit } from "../utils/audit.js";
 
 // ───────────────────────── shared helpers ─────────────────────────
@@ -467,6 +469,44 @@ export const updateScheduledPost = async (req, res) => {
   }
 };
 
+// DELETE /api/admin/scheduled-posts/:id
+// Cancels a pending post so the scheduler can never publish it. A post that
+// already went live is removed through the normal posts endpoint instead.
+export const cancelScheduledPost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post)
+      return res.status(404).json({ success: false, message: "Post not found" });
+    if (post.status !== "scheduled") {
+      return res.status(400).json({
+        success: false,
+        code: "schedule_not_cancellable",
+        message: "Only scheduled posts can be cancelled.",
+      });
+    }
+
+    post.status = "cancelled";
+    await post.save();
+
+    await writeAudit(req, {
+      action: "scheduledPost.cancel",
+      entityType: "post",
+      entityId: post._id,
+      summary: `Admin cancelled scheduled post ${post._id}`,
+      changes: { after: { status: "cancelled" } },
+    });
+    res.status(200).json({
+      success: true,
+      code: "schedule_cancelled",
+      message: "Scheduled post cancelled",
+      post,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // ───────────────────────── stories ─────────────────────────
 
 // GET /api/admin/stories
@@ -482,6 +522,15 @@ export const listStories = async (req, res) => {
     if (q.user) filter.user = q.user;
     const range = dateRange(q);
     if (range) filter.createdAt = range;
+    if (q.search) {
+      // Stories have no caption, so a keyword matches the owner or the media URL.
+      const rx = new RegExp(escapeRegex(q.search), "i");
+      const owners = await User.find({ $or: [{ username: rx }, { fullName: rx }] }).select("_id");
+      filter.$or = [
+        { "media.url": rx },
+        { user: { $in: owners.map((o) => o._id) } },
+      ];
+    }
 
     const sort = parseSort(q, ["createdAt", "viewsCount", "expiresAt"]);
     const data = await paginate(
@@ -569,6 +618,70 @@ export const listSubscriptions = async (req, res) => {
       { path: "user", select: "username fullName email" },
     );
     okList(res, data);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/subscriptions
+// Grants a plan directly (support/comping cases) with no payment attempt. The
+// orderId/paymentId are marked as manual so reports never mistake these for
+// real transactions.
+export const createSubscription = async (req, res) => {
+  try {
+    const { user: userId, plan, days } = req.body;
+    if (!userId || !isValidPlan(plan) || plan === "free") {
+      return res.status(400).json({
+        success: false,
+        code: "plan_invalid",
+        message: "Provide a user and a paid plan (bronze, silver or gold).",
+      });
+    }
+    const target = await User.findById(userId);
+    if (!target)
+      return res.status(404).json({ success: false, message: "User not found" });
+
+    const planDef = getPlan(plan);
+    const now = new Date();
+    const endDate = planEndDate(plan, now);
+    if (Number.isFinite(parseInt(days)) && parseInt(days) > 0) {
+      endDate.setDate(now.getDate() + parseInt(days));
+    }
+
+    await Subscription.updateMany(
+      { user: target._id, status: { $in: ["active", "cancellation_scheduled"] } },
+      { $set: { status: "expired" } },
+    );
+
+    const subscription = await Subscription.create({
+      user: target._id,
+      plan,
+      orderId: `admin_${Date.now()}`,
+      paymentId: `admin_${Date.now()}`,
+      amount: planDef.amountPaise,
+      currency: planDef.currency,
+      status: "active",
+      startDate: now,
+      endDate,
+      nextRenewalDate: endDate,
+      autoRenew: false,
+    });
+
+    await User.findByIdAndUpdate(target._id, {
+      plan,
+      planExpiresAt: endDate,
+      planPeriodStart: now,
+    });
+
+    await writeAudit(req, {
+      action: "subscription.create",
+      entityType: "subscription",
+      entityId: subscription._id,
+      summary: `Granted ${planDef.name} plan to ${target.username} until ${endDate.toDateString()}`,
+      changes: { after: { plan, endDate } },
+    });
+    res.status(201).json({ success: true, subscription });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ success: false, message: error.message });
@@ -743,6 +856,47 @@ export const listComments = async (req, res) => {
   }
 };
 
+// PUT /api/admin/comments/:id  (moderate the text, or hide/unhide it)
+export const updateComment = async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Comment not found" });
+
+    const changes = {};
+    if (req.body.text !== undefined) {
+      const text = String(req.body.text).trim();
+      if (!text) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Comment text cannot be empty" });
+      }
+      changes.text = { before: comment.text, after: text };
+      comment.text = text;
+    }
+    const del = toBool(req.body.isDeleted);
+    if (del !== undefined) {
+      changes.isDeleted = { before: comment.isDeleted, after: del };
+      comment.isDeleted = del;
+    }
+    await comment.save();
+
+    await writeAudit(req, {
+      action: "comment.update",
+      entityType: "comment",
+      entityId: comment._id,
+      summary: `Updated comment ${comment._id}`,
+      changes,
+    });
+    res.status(200).json({ success: true, comment });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // DELETE /api/admin/comments/:id  (hard delete + fix post counter)
 export const deleteComment = async (req, res) => {
   try {
@@ -762,6 +916,36 @@ export const deleteComment = async (req, res) => {
       summary: `Deleted comment ${comment._id}`,
     });
     res.status(200).json({ success: true, message: "Comment deleted" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/publish-errors  (Task 6 scheduler failure log)
+export const listPublishErrors = async (req, res) => {
+  try {
+    const q = req.query;
+    const filter = {};
+    if (q.post) filter.post = q.post;
+    if (q.user) filter.user = q.user;
+    const permanent = toBool(q.permanent);
+    if (permanent !== undefined) filter.permanent = permanent;
+    const range = dateRange(q);
+    if (range) filter.createdAt = range;
+
+    const sort = parseSort(q, ["createdAt", "attempt"]);
+    const data = await paginate(
+      PublishErrorLog,
+      filter,
+      sort,
+      parsePagination(q),
+      [
+        { path: "post", select: "caption status scheduledFor" },
+        { path: "user", select: "username fullName email" },
+      ],
+    );
+    okList(res, data);
   } catch (error) {
     console.log(error);
     return res.status(500).json({ success: false, message: error.message });

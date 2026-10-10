@@ -57,6 +57,7 @@ async function issueOtp(user, language, existing) {
         : "Add a mobile number in Edit Profile before switching to this language.",
     );
     err.status = 400;
+    err.code = channel === "email" ? "no_email_on_account" : "no_phone_on_account";
     throw err;
   }
 
@@ -94,15 +95,18 @@ export const requestOtp = async (req, res) => {
   try {
     const { language } = req.body;
     if (!SUPPORTED_LANGUAGES.includes(language)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Unsupported language" });
+      return res.status(400).json({
+        success: false,
+        code: "lang_unsupported",
+        message: "Unsupported language",
+      });
     }
 
     const user = await User.findById(req.user._id).select("email phone language");
     if (user.language === language) {
       return res.status(400).json({
         success: false,
+        code: "lang_already_active",
         message: "You already use this language",
       });
     }
@@ -117,6 +121,7 @@ export const requestOtp = async (req, res) => {
         const wait = Math.ceil((existing.lockedUntil - new Date()) / 1000);
         return res.status(429).json({
           success: false,
+          code: "otp_locked",
           message: `Too many failed attempts. Try again in ${wait}s.`,
           retryAfter: wait,
         });
@@ -126,6 +131,7 @@ export const requestOtp = async (req, res) => {
         const wait = Math.ceil((RESEND_COOLDOWN_MS - since) / 1000);
         return res.status(429).json({
           success: false,
+          code: "otp_cooldown",
           message: `Please wait ${wait}s before requesting a new code.`,
           retryAfter: wait,
         });
@@ -139,13 +145,14 @@ export const requestOtp = async (req, res) => {
       target: masked,
       expiresIn: minutes * 60,
       resendAfter: Math.round(RESEND_COOLDOWN_MS / 1000),
+      code: "code_sent",
       message: `Code sent via ${channel}`,
     });
   } catch (error) {
     console.log(error);
     res
       .status(error.status || 500)
-      .json({ success: false, message: error.message });
+      .json({ success: false, code: error.code, message: error.message });
   }
 };
 
@@ -154,9 +161,11 @@ export const resendOtp = async (req, res) => {
   try {
     const { language } = req.body;
     if (!SUPPORTED_LANGUAGES.includes(language)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Unsupported language" });
+      return res.status(400).json({
+        success: false,
+        code: "lang_unsupported",
+        message: "Unsupported language",
+      });
     }
     const user = await User.findById(req.user._id).select("email phone language");
 
@@ -167,6 +176,7 @@ export const resendOtp = async (req, res) => {
     if (!existing) {
       return res.status(404).json({
         success: false,
+        code: "otp_no_pending",
         message: "No pending request. Ask for a code first.",
       });
     }
@@ -174,6 +184,7 @@ export const resendOtp = async (req, res) => {
       const wait = Math.ceil((existing.lockedUntil - new Date()) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_locked",
         message: `Locked. Try again in ${wait}s.`,
         retryAfter: wait,
       });
@@ -183,6 +194,7 @@ export const resendOtp = async (req, res) => {
       const wait = Math.ceil((RESEND_COOLDOWN_MS - since) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_cooldown",
         message: `Please wait ${wait}s before resending.`,
         retryAfter: wait,
       });
@@ -195,13 +207,14 @@ export const resendOtp = async (req, res) => {
       target: masked,
       expiresIn: minutes * 60,
       resendAfter: Math.round(RESEND_COOLDOWN_MS / 1000),
+      code: "code_resent",
       message: `Code resent via ${channel}`,
     });
   } catch (error) {
     console.log(error);
     res
       .status(error.status || 500)
-      .json({ success: false, message: error.message });
+      .json({ success: false, code: error.code, message: error.message });
   }
 };
 
@@ -210,14 +223,18 @@ export const verifyOtp = async (req, res) => {
   try {
     const { language, otp } = req.body;
     if (!SUPPORTED_LANGUAGES.includes(language)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Unsupported language" });
+      return res.status(400).json({
+        success: false,
+        code: "lang_unsupported",
+        message: "Unsupported language",
+      });
     }
     if (!otp) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Enter the code" });
+      return res.status(400).json({
+        success: false,
+        code: "otp_missing",
+        message: "Enter the code",
+      });
     }
 
     const record = await OtpVerification.findOne({
@@ -227,6 +244,7 @@ export const verifyOtp = async (req, res) => {
     if (!record || record.verified) {
       return res.status(400).json({
         success: false,
+        code: "otp_no_active",
         message: "No active code. Request a new one.",
       });
     }
@@ -234,6 +252,7 @@ export const verifyOtp = async (req, res) => {
       const wait = Math.ceil((record.lockedUntil - new Date()) / 1000);
       return res.status(429).json({
         success: false,
+        code: "otp_locked",
         message: `Too many failed attempts. Locked for ${wait}s.`,
         retryAfter: wait,
       });
@@ -242,6 +261,7 @@ export const verifyOtp = async (req, res) => {
       await record.deleteOne();
       return res.status(400).json({
         success: false,
+        code: "otp_expired",
         message: "Code expired. Request a new one.",
       });
     }
@@ -255,6 +275,7 @@ export const verifyOtp = async (req, res) => {
         await record.save();
         return res.status(429).json({
           success: false,
+          code: "otp_max_attempts",
           message: "Too many wrong attempts. Locked for 15 minutes.",
           retryAfter: Math.round(record.lockedUntil.getTime() / 1000),
           locked: true,
@@ -263,6 +284,7 @@ export const verifyOtp = async (req, res) => {
       await record.save();
       return res.status(400).json({
         success: false,
+        code: "otp_wrong_code",
         message: `Wrong code. ${record.maxAttempts - record.attempts} attempt(s) left.`,
         attemptsLeft: record.maxAttempts - record.attempts,
       });
@@ -277,10 +299,13 @@ export const verifyOtp = async (req, res) => {
     res.status(200).json({
       success: true,
       language,
+      code: "lang_updated",
       message: "Language updated",
     });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ success: false, message: error.message });
+    res
+      .status(error.status || 500)
+      .json({ success: false, code: error.code, message: error.message });
   }
 };

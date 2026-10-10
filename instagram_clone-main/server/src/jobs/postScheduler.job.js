@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import Post from "../models/Post.model.js";
 import User from "../models/User.model.js";
+import PublishErrorLog from "../models/PublishErrorLog.model.js";
 import { sendPostPublishedEmail } from "../services/mailer.js";
 
 // How many times the scheduler will retry a failing post before giving up and
@@ -63,7 +64,8 @@ export const startPostSchedulerJob = () => {
           post.publishAttempts = (post.publishAttempts || 0) + 1;
           post.lastError = err.message;
 
-          if (post.publishAttempts >= MAX_PUBLISH_ATTEMPTS) {
+          const permanent = post.publishAttempts >= MAX_PUBLISH_ATTEMPTS;
+          if (permanent) {
             post.status = "failed";
             console.log(
               `[postScheduler] post ${post._id} FAILED permanently after ${post.publishAttempts} attempts: ${err.message}`,
@@ -75,6 +77,21 @@ export const startPostSchedulerJob = () => {
           }
 
           await post.save();
+
+          // Error-log write is best-effort: it must never stop the retry loop.
+          try {
+            await PublishErrorLog.create({
+              post: post._id,
+              user: post.user,
+              attempt: post.publishAttempts,
+              error: err.message,
+              permanent,
+            });
+          } catch (logErr) {
+            console.log(
+              `[postScheduler] error-log write failed: ${logErr.message}`,
+            );
+          }
         }
       }
     } catch (err) {

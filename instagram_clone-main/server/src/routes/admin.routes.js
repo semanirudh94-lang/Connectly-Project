@@ -13,17 +13,21 @@ import {
   deletePost,
   listScheduledPosts,
   updateScheduledPost,
+  cancelScheduledPost,
   listStories,
   updateStory,
   deleteStory,
   listSubscriptions,
+  createSubscription,
   updateSubscription,
   deleteSubscription,
   listReports,
   updateReport,
   deleteReport,
   listComments,
+  updateComment,
   deleteComment,
+  listPublishErrors,
   listAuditLogs,
 } from "../controllers/admin.controller.js";
 
@@ -50,14 +54,19 @@ router.delete("/posts/:id", deletePost);
 // Scheduled posts (Task 6 monitoring + admin reschedule/cancel)
 router.get("/scheduled-posts", listScheduledPosts);
 router.put("/scheduled-posts/:id", updateScheduledPost);
+router.delete("/scheduled-posts/:id", cancelScheduledPost);
+
+// Scheduler failure log (read-only)
+router.get("/publish-errors", listPublishErrors);
 
 // Stories (read/update/delete)
 router.get("/stories", listStories);
 router.put("/stories/:id", updateStory);
 router.delete("/stories/:id", deleteStory);
 
-// Subscriptions (read/update/delete)
+// Subscriptions (full CRUD; create grants a plan manually)
 router.get("/subscriptions", listSubscriptions);
+router.post("/subscriptions", createSubscription);
 router.put("/subscriptions/:id", updateSubscription);
 router.delete("/subscriptions/:id", deleteSubscription);
 
@@ -66,8 +75,9 @@ router.get("/reports", listReports);
 router.put("/reports/:id", updateReport);
 router.delete("/reports/:id", deleteReport);
 
-// Comments (read/delete)
+// Comments (read/update/delete)
 router.get("/comments", listComments);
+router.put("/comments/:id", updateComment);
 router.delete("/comments/:id", deleteComment);
 
 // Audit log (read-only)

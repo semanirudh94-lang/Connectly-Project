@@ -108,6 +108,18 @@ export async function updateScheduledPost(id: string, body: any) {
   );
   return res.data.post;
 }
+export async function cancelScheduledPost(id: string) {
+  const res = await axiosInstance.delete(`/api/admin/scheduled-posts/${id}`);
+  return res.data;
+}
+
+// ── scheduler failure log ──
+export async function listPublishErrors(
+  params?: ListParams,
+): Promise<Paginated<any>> {
+  const res = await axiosInstance.get(`/api/admin/publish-errors${qs(params)}`);
+  return res.data;
+}
 
 // ── stories ──
 export async function listStories(params?: ListParams): Promise<Paginated<any>> {
@@ -129,6 +141,14 @@ export async function listSubscriptions(
 ): Promise<Paginated<any>> {
   const res = await axiosInstance.get(`/api/admin/subscriptions${qs(params)}`);
   return res.data;
+}
+export async function createSubscription(body: {
+  user: string;
+  plan: string;
+  days?: number;
+}) {
+  const res = await axiosInstance.post("/api/admin/subscriptions", body);
+  return res.data.subscription;
 }
 export async function updateSubscription(id: string, body: any) {
   const res = await axiosInstance.put(`/api/admin/subscriptions/${id}`, body);
@@ -157,6 +177,10 @@ export async function deleteReport(id: string) {
 export async function listComments(params?: ListParams): Promise<Paginated<any>> {
   const res = await axiosInstance.get(`/api/admin/comments${qs(params)}`);
   return res.data;
+}
+export async function updateComment(id: string, body: any) {
+  const res = await axiosInstance.put(`/api/admin/comments/${id}`, body);
+  return res.data.comment;
 }
 export async function deleteComment(id: string) {
   const res = await axiosInstance.delete(`/api/admin/comments/${id}`);

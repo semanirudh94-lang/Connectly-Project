@@ -7,6 +7,7 @@ import axiosInstance from "@/lib/axios";
 import useAuthStore from "@/store/authStore";
 import { toast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
 interface FormData {
   email: string;
   fullName: string;
@@ -25,7 +26,7 @@ interface FormErrors {
 }
 const PAGE = () => {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -75,7 +76,7 @@ const PAGE = () => {
         login({ user: res.data.user, token: res.data.accessToken });
         toast.add({
           type: "success",
-          title: "Login Successfulle",
+          title: t("auth.signupSuccess"),
           description: `Hello ${res.data.user.username}`,
         });
         setLoading(false);
@@ -83,9 +84,10 @@ const PAGE = () => {
       }
     } catch (error: any) {
       console.log(error);
+      setLoading(false);
       toast.add({
         type: "error",
-        description: error.message,
+        description: serverMessage(error, language, t, t("auth.signupFailed")),
         priority: "high",
       });
     }

@@ -6,9 +6,14 @@ import {
   createSubscriptionOrder,
   verifyPayment,
   cancelSubscription,
+  razorpayWebhook,
 } from "../controllers/subscription.controller.js";
 
 const router = express.Router();
+
+// Gateway callbacks carry no user session — signature verification in the
+// handler is the only authorisation, so this must sit above router.use(protect).
+router.post("/webhook", razorpayWebhook);
 
 // Plans list is safe to expose to any logged-in user.
 router.use(protect);

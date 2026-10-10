@@ -8,13 +8,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import axiosInstance from "@/lib/axios";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { apiMessage, serverMessage } from "@/lib/serverError";
 import { resendLoginOtp, verifyLoginOtp } from "@/lib/auth.service";
 
 const OTP_LEN = 6;
 
 const page = () => {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,7 +72,7 @@ const page = () => {
         setDigits(Array(OTP_LEN).fill(""));
         setOtpError("");
         setOtpStage(true);
-        toast.add({ type: "success", description: res.data.message });
+        toast.add({ type: "success", description: apiMessage(res.data, language, t, t("settings.codeSent")) });
         setTimeout(() => inputsRef.current[0]?.focus(), 50);
         return;
       }
@@ -79,8 +80,7 @@ const page = () => {
       if (res.data.success) finishLogin(res.data);
     } catch (error: any) {
       console.log(error);
-      const msg =
-        error?.response?.data?.message || error.message || "Login failed";
+      const msg = serverMessage(error, language, t, t("auth.loginFailed"));
       setError(msg);
       toast.add({
         type: "error",
@@ -131,7 +131,7 @@ const page = () => {
       finishLogin(data);
     } catch (err: any) {
       const status = err?.response?.status;
-      const msg = err?.response?.data?.message || "Verification failed";
+      const msg = serverMessage(err, language, t, t("auth.verifyFailed"));
       setOtpError(msg);
       if (status === 429) {
         toast.add({ type: "error", title: t("loginSecurity.locked") });
@@ -150,10 +150,10 @@ const page = () => {
       const r = await resendLoginOtp(challengeToken);
       setCooldown(r.resendAfter ?? 30);
       setDigits(Array(OTP_LEN).fill(""));
-      toast.add({ type: "success", description: r.message });
+      toast.add({ type: "success", description: apiMessage(r, language, t, t("settings.codeSent")) });
       inputsRef.current[0]?.focus();
     } catch (err: any) {
-      setOtpError(err?.response?.data?.message || "Could not resend");
+      setOtpError(serverMessage(err, language, t, t("auth.resendFailed")));
     }
   };
 

@@ -131,3 +131,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export const useLanguage = () => useContext(LanguageContext);
 export const useT = () => useLanguage().t;
+
+// Lets callers check whether a server error code has a translation before
+// falling back to the raw message from the API.
+export const hasTranslation = (lang: Language, key: string) =>
+  key in dictionaries[lang] || key in dictionaries.en;

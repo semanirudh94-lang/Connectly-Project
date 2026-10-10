@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, ImagePlus, Loader2, Pencil, X } from "lucide-react";
+import { CalendarClock, Hash, ImagePlus, Loader2, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { serverMessage } from "@/lib/serverError";
+import TagUsersInput from "@/components/insta/TagUsersInput";
+import type { TaggableUser } from "@/lib/auth.service";
 import {
   cancelScheduledPost,
   createScheduledPost,
@@ -54,7 +57,7 @@ function StatusBadge({ status }: { status: ScheduledPost["status"] }) {
 }
 
 export default function ScheduledPostsSection() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +67,8 @@ export default function ScheduledPostsSection() {
   const [preview, setPreview] = useState<string>("");
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
+  const [hashtags, setHashtags] = useState("");
+  const [tagged, setTagged] = useState<TaggableUser[]>([]);
   const [visibility, setVisibility] = useState<"public" | "followers">("public");
   const [when, setWhen] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -82,7 +87,7 @@ export default function ScheduledPostsSection() {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("schedule.loadFailed"),
+        title: serverMessage(err, language, t, t("schedule.loadFailed")),
       });
     } finally {
       setLoading(false);
@@ -102,6 +107,8 @@ export default function ScheduledPostsSection() {
     setPreview("");
     setCaption("");
     setLocation("");
+    setHashtags("");
+    setTagged([]);
     setVisibility("public");
     setWhen("");
   }
@@ -117,7 +124,7 @@ export default function ScheduledPostsSection() {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("schedule.uploadFailed"),
+        title: serverMessage(err, language, t, t("schedule.uploadFailed")),
       });
     } finally {
       setUploading(false);
@@ -144,6 +151,8 @@ export default function ScheduledPostsSection() {
         media: [media],
         caption,
         location,
+        hashtags,
+        taggedUsers: tagged.map((u) => u._id),
         visibility,
         scheduledFor: new Date(when).toISOString(),
       });
@@ -153,7 +162,7 @@ export default function ScheduledPostsSection() {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("schedule.actionFailed"),
+        title: serverMessage(err, language, t, t("schedule.actionFailed")),
       });
     } finally {
       setBusy(false);
@@ -182,7 +191,7 @@ export default function ScheduledPostsSection() {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("schedule.actionFailed"),
+        title: serverMessage(err, language, t, t("schedule.actionFailed")),
       });
     } finally {
       setBusy(false);
@@ -199,7 +208,7 @@ export default function ScheduledPostsSection() {
     } catch (err: any) {
       toast.add({
         type: "error",
-        title: err?.response?.data?.message || t("schedule.actionFailed"),
+        title: serverMessage(err, language, t, t("schedule.actionFailed")),
       });
     } finally {
       setBusy(false);
@@ -255,6 +264,21 @@ export default function ScheduledPostsSection() {
           placeholder={t("schedule.location")}
           className="w-full mb-2 px-3 py-2 text-sm rounded-lg border border-ig-border bg-transparent text-ig-text placeholder:text-ig-muted focus:outline-none focus:border-ig-text"
         />
+        <div className="flex items-center gap-2 mb-2">
+          <Hash size={15} className="text-ig-muted shrink-0" />
+          <input
+            value={hashtags}
+            onChange={(e) => setHashtags(e.target.value)}
+            placeholder={t("schedule.hashtags")}
+            className="w-full px-3 py-2 text-sm rounded-lg border border-ig-border bg-transparent text-ig-text placeholder:text-ig-muted focus:outline-none focus:border-ig-text"
+          />
+        </div>
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-ig-muted mb-1.5">
+            {t("schedule.tagPeople")}
+          </p>
+          <TagUsersInput selected={tagged} onChange={setTagged} />
+        </div>
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <select
             value={visibility}
@@ -343,6 +367,16 @@ export default function ScheduledPostsSection() {
                     <p className="text-sm text-ig-text line-clamp-2">
                       {p.caption || t("schedule.noCaption")}
                     </p>
+                    {p.hashtags && p.hashtags.length > 0 && (
+                      <p className="text-xs text-[#0095f6] mt-1 line-clamp-1">
+                        {p.hashtags.map((h) => `#${h}`).join(" ")}
+                      </p>
+                    )}
+                    {Array.isArray(p.taggedUsers) && p.taggedUsers.length > 0 && (
+                      <p className="text-xs text-ig-muted mt-1">
+                        {t("schedule.taggedCount", { count: p.taggedUsers.length })}
+                      </p>
+                    )}
                     {p.status === "failed" && p.lastError && (
                       <p className="text-xs text-[#ed4956] mt-1">
                         {t("schedule.lastError")}: {p.lastError}

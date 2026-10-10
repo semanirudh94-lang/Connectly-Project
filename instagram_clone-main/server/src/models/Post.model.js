@@ -60,6 +60,12 @@ const postSchema = new mongoose.Schema(
       },
     ],
 
+    hashtags: {
+      type: [String],
+      default: [],
+      set: (tags) => [...new Set(tags.map((t) => t.toLowerCase()))].slice(0, 30),
+    },
+
     visibility: {
       type: String,
       enum: ["public", "followers"],
@@ -138,5 +144,6 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ user: 1, createdAt: -1 });
 postSchema.index({ status: 1, scheduledFor: 1 });
+postSchema.index({ hashtags: 1 });
 
 export default mongoose.model("Post", postSchema);
