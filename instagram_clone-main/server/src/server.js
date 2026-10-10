@@ -7,6 +7,7 @@ import connectDB from "./config/db.js";
 import { initSocket } from "./socket.js";
 import { startStoryExpiryJob } from "./jobs/storyExpiry.job.js";
 import { startSubscriptionExpiryJob } from "./jobs/subscriptionExpiry.job.js";
+import { startPostSchedulerJob } from "./jobs/postScheduler.job.js";
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server);
@@ -15,6 +16,7 @@ const startServer = async () => {
     await connectDB();
     startStoryExpiryJob();
     startSubscriptionExpiryJob();
+    startPostSchedulerJob();
     server.listen(PORT, () => {
       console.log("--------------------------------");
       console.log(`🚀 Server Running`);

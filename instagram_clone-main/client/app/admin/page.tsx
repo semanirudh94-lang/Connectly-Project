@@ -11,6 +11,7 @@ import {
   Flag,
   MessageSquare,
   ScrollText,
+  Clock,
   ShieldAlert,
   ChevronLeft,
 } from "lucide-react";
@@ -30,6 +31,8 @@ import {
   listPosts,
   updatePost,
   deletePost,
+  listScheduledPosts,
+  updateScheduledPost,
   listStories,
   updateStory,
   deleteStory,
@@ -49,6 +52,7 @@ type TabId =
   | "overview"
   | "users"
   | "posts"
+  | "scheduled"
   | "stories"
   | "subscriptions"
   | "reports"
@@ -201,6 +205,49 @@ export default function AdminPage() {
       remove: { submit: deletePost },
     };
 
+    const schedStatusTone = (s: string) =>
+      s === "scheduled"
+        ? "bg-[#0095f6]/15 text-[#0095f6]"
+        : s === "published"
+          ? "bg-green-500/15 text-green-600"
+          : s === "failed"
+            ? "bg-[#ed4956]/15 text-[#ed4956]"
+            : "bg-ig-hover text-ig-muted";
+
+    const scheduled: ResourceConfig = {
+      title: t("admin.tabs.scheduled"),
+      list: listScheduledPosts,
+      searchable: true,
+      searchPlaceholder: t("admin.searchPosts"),
+      sortOptions: [
+        { value: "scheduledFor", label: t("admin.sort.scheduleTime") },
+        { value: "createdAt", label: t("admin.sort.newest") },
+        { value: "status", label: t("admin.sort.status") },
+      ],
+      filters: [
+        { name: "status", label: t("admin.status"), type: "select", options: opt(["scheduled", "published", "cancelled", "failed"], "admin.schedStatusVal") },
+        { name: "from", label: t("admin.from"), type: "date" },
+        { name: "to", label: t("admin.to"), type: "date" },
+      ],
+      columns: [
+        { key: "user", label: t("admin.col.owner"), render: (r) => r.user?.username || "—" },
+        { key: "caption", label: t("admin.col.caption"), render: (r) => <span className="line-clamp-1 max-w-[200px] inline-block">{r.caption || "—"}</span> },
+        { key: "status", label: t("admin.col.status"), render: (r) => <Badge text={r.status} tone={schedStatusTone(r.status)} /> },
+        { key: "scheduledFor", label: t("admin.col.scheduledFor"), render: (r) => dateFmt(r.scheduledFor) },
+        { key: "publishAttempts", label: t("admin.col.attempts"), render: (r) => r.publishAttempts ?? 0 },
+        { key: "lastError", label: t("admin.col.lastError"), render: (r) => <span className="line-clamp-1 max-w-[180px] inline-block text-[#ed4956]">{r.lastError || "—"}</span> },
+        { key: "publishedAt", label: t("admin.col.publishedAt"), render: (r) => dateFmt(r.publishedAt) },
+      ],
+      edit: {
+        title: t("admin.editScheduled"),
+        submit: updateScheduledPost,
+        fields: [
+          { name: "status", label: t("admin.col.status"), type: "select", options: opt(["scheduled", "published", "cancelled", "failed"], "admin.schedStatusVal") },
+          { name: "scheduledFor", label: t("admin.col.scheduledFor"), type: "datetime" },
+        ],
+      },
+    };
+
     const stories: ResourceConfig = {
       title: t("admin.tabs.stories"),
       list: listStories,
@@ -349,6 +396,7 @@ export default function AdminPage() {
       overview: null,
       users,
       posts,
+      scheduled,
       stories,
       subscriptions,
       reports,
@@ -362,6 +410,7 @@ export default function AdminPage() {
     { id: "overview", label: t("admin.tabs.overview"), icon: LayoutDashboard },
     { id: "users", label: t("admin.tabs.users"), icon: Users },
     { id: "posts", label: t("admin.tabs.posts"), icon: ImageIcon },
+    { id: "scheduled", label: t("admin.tabs.scheduled"), icon: Clock },
     { id: "stories", label: t("admin.tabs.stories"), icon: Film },
     { id: "subscriptions", label: t("admin.tabs.subscriptions"), icon: CreditCard },
     { id: "reports", label: t("admin.tabs.reports"), icon: Flag },

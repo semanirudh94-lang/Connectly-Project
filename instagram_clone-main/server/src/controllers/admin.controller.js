@@ -389,6 +389,84 @@ export const deletePost = async (req, res) => {
   }
 };
 
+// ───────────────────────── scheduled posts ─────────────────────────
+
+// GET /api/admin/scheduled-posts  (Task 6 monitoring: filter by status, search
+// by caption/owner, and range-filter on the scheduled publish time)
+export const listScheduledPosts = async (req, res) => {
+  try {
+    const q = req.query;
+    const filter = { isDeleted: false };
+
+    // Only surface posts that are part of the scheduling lifecycle.
+    const SCHEDULE_STATUSES = ["scheduled", "published", "cancelled", "failed"];
+    if (q.status && SCHEDULE_STATUSES.includes(q.status)) {
+      filter.status = q.status;
+    } else {
+      filter.status = { $in: SCHEDULE_STATUSES };
+      // By default hide plain published posts unless explicitly requested,
+      // so this view focuses on scheduled/cancelled/failed.
+      if (!q.status) filter.status = { $in: ["scheduled", "cancelled", "failed"] };
+    }
+
+    if (q.user) filter.user = q.user;
+    if (q.search) {
+      const rx = new RegExp(escapeRegex(q.search), "i");
+      const owners = await User.find({ username: rx }).select("_id");
+      filter.$or = [
+        { caption: rx },
+        { user: { $in: owners.map((o) => o._id) } },
+      ];
+    }
+    // Date range applies to the scheduled publish time.
+    const range = dateRange(q);
+    if (range) filter.scheduledFor = range;
+
+    const sort = parseSort(q, ["scheduledFor", "createdAt", "status"]);
+    const data = await paginate(
+      Post,
+      filter,
+      sort,
+      parsePagination(q),
+      { path: "user", select: "username fullName profilePicture" },
+    );
+    okList(res, data);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/admin/scheduled-posts/:id  (admin can reschedule or force-cancel)
+export const updateScheduledPost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post)
+      return res.status(404).json({ success: false, message: "Post not found" });
+
+    const allowed = ["status", "scheduledFor"];
+    const changes = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        post[key] = req.body[key];
+        changes[key] = req.body[key];
+      }
+    }
+    await post.save();
+    await writeAudit(req, {
+      action: "scheduledPost.update",
+      entityType: "post",
+      entityId: post._id,
+      summary: `Admin updated scheduled post ${post._id}`,
+      changes,
+    });
+    res.status(200).json({ success: true, post });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // ───────────────────────── stories ─────────────────────────
 
 // GET /api/admin/stories

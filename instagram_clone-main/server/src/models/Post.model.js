@@ -66,6 +66,36 @@ const postSchema = new mongoose.Schema(
       default: "public",
     },
 
+    // Scheduling. `status` defaults to "published" so every existing/normal post
+    // keeps working. A "scheduled" post is hidden from feed & profile until the
+    // scheduler flips it to "published" at `scheduledFor`.
+    status: {
+      type: String,
+      enum: ["scheduled", "published", "cancelled", "failed"],
+      default: "published",
+      index: true,
+    },
+
+    scheduledFor: {
+      type: Date,
+      default: null,
+    },
+
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
+
+    publishAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lastError: {
+      type: String,
+      default: null,
+    },
+
     likesCount: {
       type: Number,
       default: 0,
@@ -107,5 +137,6 @@ const postSchema = new mongoose.Schema(
 );
 
 postSchema.index({ user: 1, createdAt: -1 });
+postSchema.index({ status: 1, scheduledFor: 1 });
 
 export default mongoose.model("Post", postSchema);

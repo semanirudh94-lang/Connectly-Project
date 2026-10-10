@@ -11,6 +11,8 @@ import {
   listPosts,
   updatePost,
   deletePost,
+  listScheduledPosts,
+  updateScheduledPost,
   listStories,
   updateStory,
   deleteStory,
@@ -44,6 +46,10 @@ router.delete("/users/:id", deleteUser);
 router.get("/posts", listPosts);
 router.put("/posts/:id", updatePost);
 router.delete("/posts/:id", deletePost);
+
+// Scheduled posts (Task 6 monitoring + admin reschedule/cancel)
+router.get("/scheduled-posts", listScheduledPosts);
+router.put("/scheduled-posts/:id", updateScheduledPost);
 
 // Stories (read/update/delete)
 router.get("/stories", listStories);

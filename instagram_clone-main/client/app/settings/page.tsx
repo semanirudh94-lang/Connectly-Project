@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/insta/Sidebar";
 import MobileNav from "@/components/insta/MobileNav";
 import SubscriptionSection from "@/components/insta/SubscriptionSection";
+import ScheduledPostsSection from "@/components/insta/ScheduledPostsSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { LANGUAGES, useLanguage, type Language } from "@/lib/LanguageProvider";
@@ -287,6 +288,8 @@ export default function SettingsPage() {
           )}
 
           <SubscriptionSection />
+
+          <ScheduledPostsSection />
         </div>
       </div>
       <MobileNav />

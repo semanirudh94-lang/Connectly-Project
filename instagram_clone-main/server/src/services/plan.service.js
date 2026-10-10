@@ -16,6 +16,9 @@ export async function computeUsage(user) {
   const used = await Post.countDocuments({
     user: user._id,
     isDeleted: false,
+    // Cancelled/failed scheduled posts never went live, so they don't consume
+    // quota. Scheduled + published posts do (a scheduled post reserves a slot).
+    status: { $nin: ["cancelled", "failed"] },
     createdAt: { $gte: periodStart },
   });
 

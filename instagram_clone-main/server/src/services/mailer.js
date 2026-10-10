@@ -141,3 +141,73 @@ export async function sendInvoiceEmail({
     throw error;
   }
 }
+
+// Notifies a user that their scheduled post has gone live (Task 6).
+export async function sendPostPublishedEmail({
+  to,
+  fullName = "there",
+  caption = "",
+  scheduledFor,
+  publishedAt,
+}) {
+  const fmt = (d) =>
+    d
+      ? new Date(d).toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "—";
+  const snippet = caption
+    ? caption.length > 120
+      ? `${caption.slice(0, 120)}…`
+      : caption
+    : "(no caption)";
+
+  const subject = "Your scheduled post is now live — InstAI";
+  const text = `Hi ${fullName},\n\nYour scheduled post has been published.\n\nScheduled for: ${fmt(scheduledFor)}\nPublished at: ${fmt(publishedAt)}\nCaption: ${snippet}\n\n— InstAI`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:24px;border:1px solid #eee;border-radius:12px">
+    <h2 style="margin:0 0 4px">InstAI</h2>
+    <p style="color:#555;margin:0 0 20px">Your scheduled post is now live</p>
+    <p style="margin:0 0 16px">Hi ${fullName}, your post was published automatically as scheduled.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      ${[
+        ["Scheduled for", fmt(scheduledFor)],
+        ["Published at", fmt(publishedAt)],
+        ["Caption", snippet],
+      ]
+        .map(
+          ([k, v]) =>
+            `<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#888">${k}</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;color:#111;font-weight:600;text-align:right">${v}</td></tr>`,
+        )
+        .join("")}
+    </table>
+    <p style="color:#999;font-size:12px;margin-top:20px">You're receiving this because you scheduled a post on InstAI.</p>
+  </div>`;
+
+  const transporter = getTransporter();
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER || "no-reply@instai.local",
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    if (info?.stub) {
+      console.log(
+        `\n[EMAIL STUB] Post-published notice for ${to} => scheduled ${fmt(scheduledFor)}, published ${fmt(publishedAt)} ` +
+          `(set EMAIL_USER/EMAIL_PASS in .env to send real mail)\n`,
+      );
+      return { delivered: false, mode: "console" };
+    }
+
+    const preview = nodemailer.getTestMessageUrl?.(info);
+    if (preview) console.log(`[mailer] post-published preview: ${preview}`);
+    return { delivered: true, mode: "smtp" };
+  } catch (error) {
+    console.log("[mailer] post-published send failed:", error.message);
+    throw error;
+  }
+}

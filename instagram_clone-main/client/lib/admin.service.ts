@@ -92,6 +92,23 @@ export async function deletePost(id: string) {
   return res.data;
 }
 
+// ── scheduled posts ──
+export async function listScheduledPosts(
+  params?: ListParams,
+): Promise<Paginated<any>> {
+  const res = await axiosInstance.get(
+    `/api/admin/scheduled-posts${qs(params)}`,
+  );
+  return res.data;
+}
+export async function updateScheduledPost(id: string, body: any) {
+  const res = await axiosInstance.put(
+    `/api/admin/scheduled-posts/${id}`,
+    body,
+  );
+  return res.data.post;
+}
+
 // ── stories ──
 export async function listStories(params?: ListParams): Promise<Paginated<any>> {
   const res = await axiosInstance.get(`/api/admin/stories${qs(params)}`);

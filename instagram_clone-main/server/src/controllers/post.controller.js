@@ -38,7 +38,7 @@ export const createPost = async (req, res) => {
 };
 export const getPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ isDeleted: false })
+    const posts = await Post.find({ isDeleted: false, status: "published" })
       .populate("user", "username fullName profilePicture")
       .lean();
 
@@ -77,7 +77,11 @@ export const getUserPosts = async (req, res) => {
         message: "User not found",
       });
     }
-    const posts = await Post.find({ user: user?._id, isDeleted: false }).sort({
+    const posts = await Post.find({
+      user: user?._id,
+      isDeleted: false,
+      status: "published",
+    }).sort({
       createdAt: -1,
     });
     res.status(200).json({

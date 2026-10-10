@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/toast";
 import { useLanguage } from "@/lib/LanguageProvider";
 import type { Paginated, ListParams } from "@/lib/admin.service";
 
-export type FieldType = "text" | "select" | "boolean" | "date";
+export type FieldType = "text" | "select" | "boolean" | "date" | "datetime";
 export interface Option {
   value: string;
   label: string;
@@ -49,6 +49,16 @@ export interface ResourceConfig {
 }
 
 const PAGE_SIZE = 15;
+
+// Format a date value for an <input type="datetime-local"> (local time).
+function toLocalInput(v: any): string {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}`;
+}
 
 export default function ResourceTable({ config }: { config: ResourceConfig }) {
   const { t } = useLanguage();
@@ -371,7 +381,11 @@ function FormModal({
       if (mode === "edit" && row) {
         const v = row[f.name];
         init[f.name] =
-          f.type === "date" && v ? new Date(v).toISOString().slice(0, 10) : v ?? "";
+          f.type === "date" && v
+            ? new Date(v).toISOString().slice(0, 10)
+            : f.type === "datetime" && v
+              ? toLocalInput(v)
+              : v ?? "";
       } else {
         init[f.name] = f.type === "boolean" ? false : "";
       }
@@ -390,6 +404,7 @@ function FormModal({
       spec.fields.forEach((f) => {
         let v = form[f.name];
         if (f.type === "boolean") v = v === true || v === "true";
+        if (f.type === "datetime" && v) v = new Date(v).toISOString();
         if (v === "" || v === undefined) return;
         body[f.name] = v;
       });
@@ -447,7 +462,13 @@ function FormModal({
                 </select>
               ) : (
                 <input
-                  type={f.type === "date" ? "date" : "text"}
+                  type={
+                    f.type === "date"
+                      ? "date"
+                      : f.type === "datetime"
+                        ? "datetime-local"
+                        : "text"
+                  }
                   value={form[f.name] ?? ""}
                   onChange={(e) => setField(f.name, e.target.value)}
                   className="py-2 px-2 text-sm rounded-lg border border-ig-border bg-transparent text-ig-text focus:outline-none focus:border-ig-text"
