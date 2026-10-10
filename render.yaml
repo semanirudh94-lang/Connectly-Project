@@ -1,0 +1,42 @@
+# Render blueprint for the Express + socket.io backend.
+# Import this repository into Render and it will offer to create this service
+# automatically. The React/Next.js client is deployed separately (Vercel),
+# because it needs a persistent Node process here for the cron jobs.
+services:
+  - type: web
+    name: instaai-server
+    runtime: node
+    rootDir: instagram_clone-main/server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    # GET / returns a small health payload.
+    healthCheckPath: /
+    envVars:
+      # Non-secret defaults can live in the file; every credential below must be
+      # typed into the Render dashboard once (sync: false keeps the value out of
+      # this public repo).
+      - key: PORT
+        value: "10000"
+      - key: CLIENT_URL
+        value: "" # https://<your-app>.vercel.app
+      - key: MONGO_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

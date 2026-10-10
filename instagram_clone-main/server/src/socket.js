@@ -5,10 +5,18 @@ import Message from "./models/message.model.js";
 
 let io;
 
+// Same comma-separated allow-list the Express CORS middleware uses.
+const clientOrigins = (process.env.CLIENT_URL || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      // An empty allow-list would silently block every cross-origin socket, so
+      // fall back to echoing the request origin when CLIENT_URL is unset (dev).
+      origin: clientOrigins.length ? clientOrigins : true,
       credentials: true,
     },
   });

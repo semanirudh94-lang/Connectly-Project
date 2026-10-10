@@ -23,13 +23,21 @@ const app = express();
 // address, which would make every Login History entry look identical.
 app.set("trust proxy", true);
 
+// Local dev origins plus whatever frontend is deployed (CLIENT_URL is also what
+// socket.io trusts), so a new deployment only needs an env change. Comma-
+// separated values let one service serve production and preview URLs.
+const corsOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  ...(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "https://instagram-clone-pink.vercel.app",
-    ],
+    origin: corsOrigins,
     credentials: true,
   })
 );
